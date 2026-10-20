@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react';
 
 /**
- * Vibecoding Project Tracker — M4 Data Model & Board Scaffold.
+ * Vibecoding Project Tracker — M5 CRUD Modal Integration.
  */
 
 // ==========================================
 // 1. CONSTANTS & INITIAL DATA SETUP
 // ==========================================
 
-// Define the four columns of the Kanban board in their exact render order.
 export const STAGES = [
   { id: 'todo',         label: 'To Do' },
   { id: 'in-progress', label: 'In Progress' },
@@ -16,10 +15,8 @@ export const STAGES = [
   { id: 'done',         label: 'Done' },
 ];
 
-// Predefined team members from PRD §8 (allowed values for task assignees)
 export const TEAM = ['Alice Smith', 'Bob Jones', 'Charlie Brown'];
 
-// Seed tasks to ensure the board isn't completely empty on first load (M4 requirement)
 const SEED_TASKS = [
   {
     id: 'task-1',
@@ -57,11 +54,7 @@ const SEED_TASKS = [
 // 2. CUSTOM LOCALSTORAGE PERSISTENCE HOOK
 // ==========================================
 
-/**
- * A tiny localStorage hook to ensure tasks survive page reloads without needing a backend.
- */
 export function useLocalStorage(key, initialValue) {
-  // Step A: Initialize state by reading from browser localStorage, falling back to seed data
   const [value, setValue] = useState(() => {
     try {
       const raw = window.localStorage.getItem(key);
@@ -71,12 +64,11 @@ export function useLocalStorage(key, initialValue) {
     }
   });
 
-  // Step B: Automatically write changes back to localStorage whenever `value` updates
   useEffect(() => {
     try {
       window.localStorage.setItem(key, JSON.stringify(value));
     } catch {
-      /* Ignore quota or private-mode errors for the hackathon */
+      /* Ignore quota or private-mode errors */
     }
   }, [key, value]);
 
@@ -88,16 +80,91 @@ export function useLocalStorage(key, initialValue) {
 // ==========================================
 
 export default function App() {
-  // Step 1: Manage tasks state using our localStorage hook (M4 Data Model)
   const [tasks, setTasks] = useLocalStorage('vibetracker.tasks', SEED_TASKS);
   
-  // Step 2: State placeholder for editing/adding tasks via modal (M5 prep)
-  const [editing, setEditing] = useState(null);
+  // ==========================================
+  // MILESTONE 5: MODAL & CRUD STATES
+  // ==========================================
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState(null); // null = creating, object = editing
+
+  // Form input fields state
+  const [formTitle, setFormTitle] = useState('');
+  const [formDesc, setFormDesc] = useState('');
+  const [formType, setFormType] = useState('feature');
+  const [formStatus, setFormStatus] = useState('todo');
+  const [formAssignee, setFormAssignee] = useState(TEAM[0]);
+  const [formDueDate, setFormDueDate] = useState('');
+
+  // Open modal to CREATE a new task
+  const handleOpenCreate = (defaultStatus = 'todo') => {
+    setEditingTask(null);
+    setFormTitle('');
+    setFormDesc('');
+    setFormType('feature');
+    setFormStatus(defaultStatus);
+    setFormAssignee(TEAM[0]);
+    setFormDueDate('');
+    setIsModalOpen(true);
+  };
+
+  // Open modal to EDIT an existing task (triggered by clicking a card)
+  const handleOpenEdit = (task) => {
+    setEditingTask(task);
+    setFormTitle(task.title);
+    setFormDesc(task.description);
+    setFormType(task.type);
+    setFormStatus(task.status);
+    setFormAssignee(task.assignee);
+    setFormDueDate(task.dueDate || '');
+    setIsModalOpen(true);
+  };
+
+  // Save task (Handles BOTH Create and Update)
+  const handleSaveTask = (e) => {
+    e.preventDefault();
+    if (!formTitle.trim()) return;
+
+    if (editingTask) {
+      // UPDATE existing task
+      setTasks(tasks.map(t => t.id === editingTask.id ? {
+        ...t,
+        title: formTitle,
+        description: formDesc,
+        type: formType,
+        status: formStatus,
+        assignee: formAssignee,
+        dueDate: formDueDate
+      } : t));
+    } else {
+      // CREATE new task
+      const newTask = {
+        id: `task-${Date.now().toString().slice(-4)}`,
+        title: formTitle,
+        description: formDesc,
+        type: formType,
+        status: formStatus,
+        assignee: formAssignee,
+        dueDate: formDueDate,
+        createdDate: new Date().toISOString().split('T')[0]
+      };
+      setTasks([...tasks, newTask]);
+    }
+    setIsModalOpen(false);
+  };
+
+  // Handle DELETE task
+  const handleDeleteTask = () => {
+    if (editingTask && confirm('Are you sure you want to delete this task?')) {
+      setTasks(tasks.filter(t => t.id !== editingTask.id));
+      setIsModalOpen(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-100 p-6 font-sans text-slate-900">
       
-      {/* Step 3: Application Header */}
+      {/* Application Header */}
       <header className="mb-6 flex items-end justify-between bg-white p-4 rounded-xl shadow-sm border border-slate-200">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">
@@ -107,10 +174,10 @@ export default function App() {
             Team Alpha — GitLab-Style Issue Tracker
           </p>
         </div>
-        {/* Placeholder trigger button for M5 Modal */}
+        {/* Real Trigger Button for M5 Modal */}
         <button
-          onClick={() => alert('Modal open for M5 (Add Task)')}
-          className="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-800 transition"
+          onClick={() => handleOpenCreate('todo')}
+          className="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-800 transition shadow-xs"
         >
           + Add Task
         </button>
@@ -121,9 +188,7 @@ export default function App() {
       {/* ========================================== */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
         
-        {/* Map through each predefined column stage */}
         {STAGES.map((stage) => {
-          // Filter tasks that belong specifically to this column's status ID
           const columnTasks = tasks.filter((task) => task.status === stage.id);
           
           return (
@@ -136,30 +201,36 @@ export default function App() {
                 <h2 className="font-semibold text-sm uppercase tracking-wider text-slate-700">
                   {stage.label}
                 </h2>
-                <span className="text-xs font-bold bg-white text-slate-600 px-2 py-0.5 rounded-full shadow-xs">
-                  {columnTasks.length}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold bg-white text-slate-600 px-2 py-0.5 rounded-full shadow-xs">
+                    {columnTasks.length}
+                  </span>
+                  {/* Column quick-add button */}
+                  <button
+                    onClick={() => handleOpenCreate(stage.id)}
+                    className="text-xs bg-white text-slate-700 hover:bg-slate-50 w-5 h-5 rounded flex items-center justify-center font-bold border border-slate-300 shadow-xs"
+                    title="Add task in column"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
 
               {/* Tasks Container */}
               <div className="flex flex-col gap-3 flex-1">
-                {/* Show empty state placeholder if no tasks exist in this column */}
                 {columnTasks.length === 0 ? (
                   <div className="flex-1 flex items-center justify-center border-2 border-dashed border-slate-300 rounded-lg p-6 text-center text-slate-400 text-xs">
                     No tasks yet
                   </div>
                 ) : (
-                  // Map and render individual task cards
                   columnTasks.map((task) => (
                     <div
                       key={task.id}
-                      onClick={() => setEditing(task)} // Pre-wiring for M5 edit on click
+                      onClick={() => handleOpenEdit(task)} // Milestone 5: Opens edit modal
                       className="bg-white p-4 rounded-lg shadow-xs border border-slate-200 hover:shadow-md transition cursor-pointer relative overflow-hidden group"
                     >
-                      {/* Left indicator strip: Red for bugs, Emerald for features (M6 prep) */}
                       <div className={`absolute left-0 top-0 bottom-0 w-1 ${task.type === 'bug' ? 'bg-red-500' : 'bg-emerald-500'}`} />
 
-                      {/* Card Header: ID and Type Badge */}
                       <div className="flex justify-between items-center mb-1 pl-1">
                         <span className="text-[10px] font-mono text-slate-400 uppercase">{task.id}</span>
                         <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
@@ -169,11 +240,9 @@ export default function App() {
                         </span>
                       </div>
 
-                      {/* Task Title and Description Preview */}
                       <h3 className="font-semibold text-sm text-slate-800 mb-1 pl-1">{task.title}</h3>
                       <p className="text-xs text-slate-500 line-clamp-2 mb-3 pl-1">{task.description}</p>
 
-                      {/* Card Footer: Assignee & Due Date */}
                       <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px] text-slate-400 pl-1">
                         <span className="font-medium text-slate-600">👤 {task.assignee}</span>
                         {task.dueDate && <span>📅 {task.dueDate}</span>}
@@ -186,6 +255,121 @@ export default function App() {
           );
         })}
       </div>
+
+      {/* ========================================== */}
+      {/* 5. CRUD MODAL POPUP (Milestone 5)          */}
+      {/* ========================================== */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+            <h2 className="text-lg font-bold text-slate-900 mb-4">
+              {editingTask ? `Edit Task (${editingTask.id})` : 'Create New Task'}
+            </h2>
+
+            <form onSubmit={handleSaveTask} className="flex flex-col gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Task Title</label>
+                <input
+                  type="text"
+                  required
+                  value={formTitle}
+                  onChange={(e) => setFormTitle(e.target.value)}
+                  placeholder="e.g. Design user profile page"
+                  className="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Description</label>
+                <textarea
+                  rows="3"
+                  value={formDesc}
+                  onChange={(e) => setFormDesc(e.target.value)}
+                  placeholder="Provide brief issue details..."
+                  className="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Type</label>
+                  <select
+                    value={formType}
+                    onChange={(e) => setFormType(e.target.value)}
+                    className="w-full text-sm border border-slate-300 rounded-lg p-2 bg-white"
+                  >
+                    <option value="feature">Feature</option>
+                    <option value="bug">Bug</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Status Column</label>
+                  <select
+                    value={formStatus}
+                    onChange={(e) => setFormStatus(e.target.value)}
+                    className="w-full text-sm border border-slate-300 rounded-lg p-2 bg-white"
+                  >
+                    {STAGES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Assignee</label>
+                  <select
+                    value={formAssignee}
+                    onChange={(e) => setFormAssignee(e.target.value)}
+                    className="w-full text-sm border border-slate-300 rounded-lg p-2 bg-white"
+                  >
+                    {TEAM.map(member => <option key={member} value={member}>{member}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Due Date</label>
+                  <input
+                    type="date"
+                    value={formDueDate}
+                    onChange={(e) => setFormDueDate(e.target.value)}
+                    className="w-full text-sm border border-slate-300 rounded-lg p-2 bg-white"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-4 border-t border-slate-100 mt-2">
+                {editingTask ? (
+                  <button
+                    type="button"
+                    onClick={handleDeleteTask}
+                    className="px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition font-medium"
+                  >
+                    Delete Task
+                  </button>
+                ) : <div />}
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 text-sm bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition font-medium"
+                  >
+                    {editingTask ? 'Save Changes' : 'Create Task'}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
