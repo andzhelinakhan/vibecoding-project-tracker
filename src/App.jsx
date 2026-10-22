@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 
-// Column Definition with Solid Tints & 1px Borders
+// Stage Column Definitions
 export const STAGES = [
   {
     id: 'todo',
     label: 'To Do',
-    bg: 'bg-purple-100/80',
+    bg: 'bg-purple-100/60',
     border: 'border-purple-300',
     headerText: 'text-purple-950',
     countBadge: 'bg-purple-200 text-purple-950 border-purple-300',
@@ -13,7 +13,7 @@ export const STAGES = [
   {
     id: 'in-progress',
     label: 'In Progress',
-    bg: 'bg-amber-100/80',
+    bg: 'bg-amber-100/60',
     border: 'border-amber-300',
     headerText: 'text-amber-950',
     countBadge: 'bg-amber-200 text-amber-950 border-amber-300',
@@ -21,7 +21,7 @@ export const STAGES = [
   {
     id: 'review',
     label: 'Review',
-    bg: 'bg-orange-100/80',
+    bg: 'bg-orange-100/60',
     border: 'border-orange-300',
     headerText: 'text-orange-950',
     countBadge: 'bg-orange-200 text-orange-950 border-orange-300',
@@ -29,7 +29,7 @@ export const STAGES = [
   {
     id: 'done',
     label: 'Done',
-    bg: 'bg-emerald-100/80',
+    bg: 'bg-emerald-100/60',
     border: 'border-emerald-300',
     headerText: 'text-emerald-950',
     countBadge: 'bg-emerald-200 text-emerald-950 border-emerald-300',
@@ -46,53 +46,16 @@ const getTeamMember = (name) => {
   return TEAM.find((m) => m.name === name) || { name: name || 'Unassigned', initials: '??', color: 'bg-stone-500 text-white' };
 };
 
-// Dual Color Modes for Accessibility Compliance
-export const COLOR_MODES = {
-  standard: {
-    name: 'Standard (Red & Green)',
-    feature: {
-      bg: 'bg-white',
-      border: 'border-stone-200',
-      badge: 'bg-emerald-100 text-emerald-950 border-emerald-300',
-      bar: 'bg-emerald-500',
-      symbol: '★',
-    },
-    bug: {
-      bg: 'bg-white',
-      border: 'border-stone-200',
-      badge: 'bg-red-100 text-red-950 border-red-300',
-      bar: 'bg-red-500',
-      symbol: '▲',
-    },
-  },
-  accessible: {
-    name: 'Accessible (Blue & Orange)',
-    feature: {
-      bg: 'bg-white',
-      border: 'border-stone-200',
-      badge: 'bg-blue-100 text-blue-950 border-blue-300',
-      bar: 'bg-blue-600',
-      symbol: '★',
-    },
-    bug: {
-      bg: 'bg-white',
-      border: 'border-stone-200',
-      badge: 'bg-orange-100 text-orange-950 border-orange-300',
-      bar: 'bg-orange-500',
-      symbol: '▲',
-    },
-  },
-};
-
+// Seed tasks designed to demonstrate all 4 states on page load
 const SEED_TASKS = [
   {
     id: 'task-1',
     title: 'Initialize repository and setup Tailwind',
-    description: 'Configure Vite, React, and Tailwind CSS design tokens according to DESIGN.md.',
+    description: 'Configure Vite, React, and Tailwind CSS design tokens.',
     type: 'feature',
     status: 'done',
     assignee: 'Alice Smith',
-    dueDate: '2026-10-22',
+    dueDate: '2026-10-20', // Done -> Neutral
   },
   {
     id: 'task-2',
@@ -101,7 +64,7 @@ const SEED_TASKS = [
     type: 'feature',
     status: 'in-progress',
     assignee: 'Bob Jones',
-    dueDate: '2026-10-25',
+    dueDate: '2026-10-23', // Less than 24h -> Warning (Amber/Yellow)
   },
   {
     id: 'task-3',
@@ -110,9 +73,37 @@ const SEED_TASKS = [
     type: 'bug',
     status: 'todo',
     assignee: 'Charlie Brown',
-    dueDate: '2026-10-24',
+    dueDate: '2026-10-20', // Past due -> Alarm (Red)
+  },
+  {
+    id: 'task-4',
+    title: 'Setup automated CI/CD pipeline',
+    description: 'Deploy main branch automatically on push.',
+    type: 'feature',
+    status: 'review',
+    assignee: 'Alice Smith',
+    dueDate: '2026-10-28', // More than 2 days -> Calm (Baby Blue)
   },
 ];
+
+// Calculation for time-based urgency state
+const getTaskUrgency = (task) => {
+  if (task.status === 'done') return 'neutral'; // Done: neutral
+
+  if (!task.dueDate) return 'calm';
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const due = new Date(task.dueDate);
+  due.setHours(0, 0, 0, 0);
+
+  const diffDays = Math.round((due - today) / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 0) return 'alarm';       // Past due
+  if (diffDays <= 1) return 'warning';    // Less than 24 hours
+  return 'calm';                          // More than 2 days out
+};
 
 export function useLocalStorage(key, initialValue) {
   const [value, setValue] = useState(() => {
@@ -135,7 +126,6 @@ export function useLocalStorage(key, initialValue) {
 
 export default function App() {
   const [tasks, setTasks] = useLocalStorage('vibetracker.tasks', SEED_TASKS);
-  const [isAccessibleMode, setIsAccessibleMode] = useLocalStorage('vibetracker.accessible', false);
   const [currentUser, setCurrentUser] = useLocalStorage('vibetracker.user', TEAM[0].name);
 
   const [filterMyTasks, setFilterMyTasks] = useState(false);
@@ -222,8 +212,6 @@ export default function App() {
     }
   };
 
-  const currentThemeSet = isAccessibleMode ? COLOR_MODES.accessible : COLOR_MODES.standard;
-
   const displayedTasks = filterMyTasks
     ? tasks.filter((t) => t.assignee === currentUser)
     : tasks;
@@ -260,17 +248,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Accessible Mode Toggle */}
-          <label className="text-xs font-medium text-stone-700 flex items-center gap-2 cursor-pointer bg-stone-50 px-3 py-2 rounded-md border border-stone-200 hover:border-stone-300 transition-colors">
-            <input
-              type="checkbox"
-              checked={isAccessibleMode}
-              onChange={(e) => setIsAccessibleMode(e.target.checked)}
-              className="accent-stone-900 rounded-sm focus:ring-2 focus:ring-sky-600 focus:outline-none w-4 h-4"
-            />
-            <span className="hidden lg:inline">Accessible Mode</span> (Blue/Orange)
-          </label>
-
           {/* Add Task Button */}
           <button
             type="button"
@@ -284,7 +261,7 @@ export default function App() {
       </header>
 
       {/* Team Workload Strip & Quick Filters */}
-      <div className="mb-6 bg-white border border-stone-200 rounded-lg p-4 flex flex-wrap items-center justify-between gap-4 shadow-2xs">
+      <div className="mb-4 bg-white border border-stone-200 rounded-lg p-4 flex flex-wrap items-center justify-between gap-4 shadow-2xs">
         <div className="flex items-center gap-4">
           <span className="text-xs font-bold uppercase tracking-wider text-stone-500 font-mono">
             Team Workload:
@@ -321,6 +298,33 @@ export default function App() {
         </div>
       </div>
 
+      {/* TASK URGENCY LEGEND STRIP */}
+      <div className="mb-6 bg-white border border-stone-200 rounded-lg px-4 py-2.5 flex flex-wrap items-center justify-end gap-5 text-xs shadow-2xs">
+        <span className="font-mono text-stone-500 font-bold uppercase tracking-wider text-[11px] mr-auto">
+          Task Urgency:
+        </span>
+        
+        <div className="flex items-center gap-2">
+          <span className="w-3.5 h-3.5 rounded-xs bg-sky-200 border border-sky-400 shadow-2xs" />
+          <span className="text-stone-700 font-medium">More than 2 days out</span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="w-3.5 h-3.5 rounded-xs bg-amber-200 border border-amber-400" />
+          <span className="text-amber-950 font-medium">Less than 24 hours</span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="w-3.5 h-3.5 rounded-xs bg-red-200 border border-red-400" />
+          <span className="text-red-950 font-medium">Past due</span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="w-3.5 h-3.5 rounded-xs bg-stone-50 border border-stone-300" />
+          <span className="text-stone-600 font-medium">Done</span>
+        </div>
+      </div>
+
       {/* Grid with 4 Equal Columns */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-stretch" role="region" aria-label="Kanban Board Columns">
         {STAGES.map((stage) => {
@@ -329,7 +333,7 @@ export default function App() {
           return (
             <div
               key={stage.id}
-              className={`border ${stage.border} ${stage.bg} rounded-lg p-4 flex flex-col min-h-[580px] w-full transition-all shadow-2xs`}
+              className={`border ${stage.border} ${stage.bg} rounded-lg p-4 flex flex-col min-h-[580px] w-full transition-colors duration-200 shadow-2xs`}
             >
               {/* Column Header */}
               <div className="flex items-center justify-between pb-3 mb-4 border-b border-black/10">
@@ -360,8 +364,20 @@ export default function App() {
                   </div>
                 ) : (
                   columnTasks.map((task) => {
-                    const activeTheme = currentThemeSet[task.type] || currentThemeSet.feature;
                     const assigneeObj = getTeamMember(task.assignee);
+                    const urgency = getTaskUrgency(task);
+
+                    // 4 visibly distinct time-based state classes
+                    const urgencyClasses = {
+                      calm: 'bg-sky-200/90 border-sky-400 shadow-xs text-sky-950',
+                      warning: 'bg-amber-200/90 border-amber-400 shadow-xs text-amber-950',
+                      alarm: 'bg-red-200/90 border-red-400 shadow-sm ring-1 ring-red-400 text-red-950',
+                      neutral: 'bg-stone-50/90 border-stone-200 text-stone-700 opacity-90',
+                    }[urgency];
+
+                    const badgeStyle = task.type === 'bug' 
+                      ? 'bg-red-100 text-red-950 border-red-300' 
+                      : 'bg-emerald-100 text-emerald-950 border-emerald-300';
 
                     return (
                       <div
@@ -372,18 +388,23 @@ export default function App() {
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') handleOpenEdit(task);
                         }}
-                        className={`pt-3.5 pb-4 px-4 pl-6 rounded-md border ${activeTheme.border} bg-white shadow-xs transition-all duration-150 cursor-pointer relative overflow-hidden hover:shadow-md hover:-translate-y-0.5 focus:ring-2 focus:ring-sky-600 focus:outline-none flex flex-col justify-between`}
+                        className={`pt-3.5 pb-4 px-4 rounded-md border ${urgencyClasses} transition-all duration-150 cursor-pointer hover:shadow-md hover:-translate-y-0.5 focus:ring-2 focus:ring-sky-600 focus:outline-none flex flex-col justify-between`}
                       >
-                        {/* Accent Side Bar */}
-                        <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${activeTheme.bar}`} aria-hidden="true" />
-
                         {/* Top ID and Badge Row */}
                         <div className="flex justify-between items-center mb-2">
-                          <span className="text-[11px] font-mono text-stone-500 uppercase font-bold tracking-tight">{task.id}</span>
-                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider border flex items-center gap-1 ${activeTheme.badge}`}>
-                            <span aria-hidden="true">{activeTheme.symbol}</span>
-                            {task.type}
-                          </span>
+                          <span className="text-[11px] font-mono text-stone-600 uppercase font-bold tracking-tight">{task.id}</span>
+                          <div className="flex items-center gap-1.5">
+                            {urgency === 'alarm' && (
+                              <span className="text-[9px] bg-red-200 text-red-950 border border-red-400 px-1.5 py-0.5 rounded font-bold font-mono">PAST DUE</span>
+                            )}
+                            {urgency === 'warning' && (
+                              <span className="text-[9px] bg-amber-200 text-amber-950 border border-amber-400 px-1.5 py-0.5 rounded font-bold font-mono">DUE SOON</span>
+                            )}
+                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider border flex items-center gap-1 ${badgeStyle}`}>
+                              <span aria-hidden="true">{task.type === 'bug' ? '▲' : '★'}</span>
+                              {task.type}
+                            </span>
+                          </div>
                         </div>
 
                         {/* Card Title */}
@@ -392,19 +413,19 @@ export default function App() {
                         </h3>
 
                         {/* Card Description */}
-                        <p className="text-xs text-stone-600 line-clamp-2 leading-relaxed mb-3">
+                        <p className="text-xs text-stone-700 line-clamp-2 leading-relaxed mb-3">
                           {task.description}
                         </p>
 
                         {/* Card Footer with Assignee Avatar & Initials */}
-                        <div className="flex items-center justify-between pt-2.5 border-t border-stone-100 text-[11px] text-stone-500 font-mono mt-auto">
+                        <div className="flex items-center justify-between pt-2.5 border-t border-black/10 text-[11px] text-stone-600 font-mono mt-auto">
                           <div className="flex items-center gap-1.5">
                             <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold ${assigneeObj.color}`} title={assigneeObj.name}>
                               {assigneeObj.initials}
                             </span>
-                            <span className="font-sans font-medium text-stone-800 truncate max-w-[95px]">{task.assignee}</span>
+                            <span className="font-sans font-medium text-stone-900 truncate max-w-[95px]">{task.assignee}</span>
                           </div>
-                          {task.dueDate && <span className="shrink-0">Due: {task.dueDate}</span>}
+                          {task.dueDate && <span className="shrink-0 font-bold">Due: {task.dueDate}</span>}
                         </div>
                       </div>
                     );
@@ -483,7 +504,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Assignee Field with "Assign to me" shortcut */}
               <div>
                 <div className="flex justify-between items-center mb-1">
                   <label className="block text-xs font-semibold text-stone-700">Assignee</label>
@@ -525,7 +545,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={handleDeleteTask}
-                    className="text-xs text-red-600 hover:text-red-800 font-medium hover:underline focus:ring-2 focus:ring-sky-600 focus:outline-none rounded px-1 cursor-pointer"
+                    className="text-xs bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 font-medium px-3.5 py-2 rounded transition-colors cursor-pointer"
                   >
                     Delete Task
                   </button>
@@ -537,15 +557,15 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="px-3.5 py-2 text-xs text-stone-600 hover:bg-stone-100 rounded transition-colors cursor-pointer"
+                    className="px-3.5 py-2 text-xs text-stone-700 bg-white border border-stone-300 hover:bg-stone-50 rounded transition-colors cursor-pointer font-medium"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4.5 py-2 bg-stone-900 text-white rounded text-xs font-medium hover:bg-stone-800 transition-colors shadow-xs cursor-pointer"
+                    className="px-4 py-2 bg-stone-900 text-white rounded text-xs font-medium hover:bg-stone-800 transition-colors shadow-xs cursor-pointer"
                   >
-                    {editingTask ? 'Save Changes' : 'Create Task'}
+                    {editingTask ? 'Save' : 'Create Task'}
                   </button>
                 </div>
               </div>
