@@ -4,9 +4,8 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Tweak in M6 (tag-style) and M8 (due-tint)
-        feature: '#10B981', // emerald
-        bug: '#DC2626',     // crimson
+        'surface-page': '#DDD0C8',   // beige page background
+        'surface-column': '#D5C2AB', // Distinct, warm deeper beige column background
       },
     },
   },
