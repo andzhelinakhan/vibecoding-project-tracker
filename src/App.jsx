@@ -36,7 +36,15 @@ export const STAGES = [
   },
 ];
 
-export const TEAM = ['Alice Smith', 'Bob Jones', 'Charlie Brown'];
+export const TEAM = [
+  { name: 'Alice Smith', initials: 'AS', color: 'bg-purple-600 text-white' },
+  { name: 'Bob Jones', initials: 'BJ', color: 'bg-amber-600 text-white' },
+  { name: 'Charlie Brown', initials: 'CB', color: 'bg-emerald-600 text-white' },
+];
+
+const getTeamMember = (name) => {
+  return TEAM.find((m) => m.name === name) || { name: name || 'Unassigned', initials: '??', color: 'bg-stone-500 text-white' };
+};
 
 // Dual Color Modes for Accessibility Compliance
 export const COLOR_MODES = {
@@ -128,7 +136,9 @@ export function useLocalStorage(key, initialValue) {
 export default function App() {
   const [tasks, setTasks] = useLocalStorage('vibetracker.tasks', SEED_TASKS);
   const [isAccessibleMode, setIsAccessibleMode] = useLocalStorage('vibetracker.accessible', false);
+  const [currentUser, setCurrentUser] = useLocalStorage('vibetracker.user', TEAM[0].name);
 
+  const [filterMyTasks, setFilterMyTasks] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
 
@@ -136,8 +146,10 @@ export default function App() {
   const [formDesc, setFormDesc] = useState('');
   const [formType, setFormType] = useState('feature');
   const [formStatus, setFormStatus] = useState('todo');
-  const [formAssignee, setFormAssignee] = useState(TEAM[0]);
+  const [formAssignee, setFormAssignee] = useState(currentUser);
   const [formDueDate, setFormDueDate] = useState('');
+
+  const currentUserObj = getTeamMember(currentUser);
 
   const handleOpenCreate = (defaultStatus = 'todo') => {
     setEditingTask(null);
@@ -145,7 +157,7 @@ export default function App() {
     setFormDesc('');
     setFormType('feature');
     setFormStatus(defaultStatus);
-    setFormAssignee(TEAM[0]);
+    setFormAssignee(currentUser);
     setFormDueDate('');
     setIsModalOpen(true);
   };
@@ -212,27 +224,54 @@ export default function App() {
 
   const currentThemeSet = isAccessibleMode ? COLOR_MODES.accessible : COLOR_MODES.standard;
 
+  const displayedTasks = filterMyTasks
+    ? tasks.filter((t) => t.assignee === currentUser)
+    : tasks;
+
   return (
     <div className="min-h-screen bg-[#FBF9F5] text-stone-900 p-6 md:p-8 font-sans selection:bg-stone-200" role="main" aria-label="Project Tracker Board">
       
       {/* Header Bar */}
-      <header className="mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white p-6 rounded-lg border border-stone-200 shadow-xs">
+      <header className="mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white p-6 rounded-lg border border-stone-200 shadow-xs">
         <div>
-          <h1 className="text-3xl font-serif text-stone-900 tracking-tight font-medium">Project Tracker</h1>
-          <p className="text-xs text-stone-500 mt-1 font-mono">CM6312/CM6812 — Team Alpha Kanban</p>
+          <h1 className="text-3xl font-serif text-stone-900 tracking-tight font-medium">Project Alpha Kanban Board</h1>
         </div>
 
-        <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
-          <label className="text-xs font-medium text-stone-700 flex items-center gap-2 cursor-pointer bg-stone-50 px-3.5 py-2 rounded-md border border-stone-200 hover:border-stone-300 transition-colors">
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-between md:justify-end">
+          
+          {/* User Login / Profile Switcher */}
+          <div className="flex items-center gap-2 bg-stone-100 p-1.5 pl-3 rounded-md border border-stone-200 text-xs">
+            <span className="text-stone-500 font-mono hidden sm:inline">Logged in:</span>
+            <div className="flex items-center gap-1.5">
+              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold ${currentUserObj.color}`}>
+                {currentUserObj.initials}
+              </span>
+              <select
+                value={currentUser}
+                onChange={(e) => setCurrentUser(e.target.value)}
+                className="bg-white border border-stone-300 rounded text-xs font-semibold px-2 py-1 text-stone-800 cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-600"
+              >
+                {TEAM.map((member) => (
+                  <option key={member.name} value={member.name}>
+                    {member.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Accessible Mode Toggle */}
+          <label className="text-xs font-medium text-stone-700 flex items-center gap-2 cursor-pointer bg-stone-50 px-3 py-2 rounded-md border border-stone-200 hover:border-stone-300 transition-colors">
             <input
               type="checkbox"
               checked={isAccessibleMode}
               onChange={(e) => setIsAccessibleMode(e.target.checked)}
               className="accent-stone-900 rounded-sm focus:ring-2 focus:ring-sky-600 focus:outline-none w-4 h-4"
             />
-            Accessible Mode (Blue & Orange)
+            <span className="hidden lg:inline">Accessible Mode</span> (Blue/Orange)
           </label>
 
+          {/* Add Task Button */}
           <button
             type="button"
             onClick={() => handleOpenCreate('todo')}
@@ -244,10 +283,48 @@ export default function App() {
         </div>
       </header>
 
+      {/* Team Workload Strip & Quick Filters */}
+      <div className="mb-6 bg-white border border-stone-200 rounded-lg p-4 flex flex-wrap items-center justify-between gap-4 shadow-2xs">
+        <div className="flex items-center gap-4">
+          <span className="text-xs font-bold uppercase tracking-wider text-stone-500 font-mono">
+            Team Workload:
+          </span>
+
+          <button
+            type="button"
+            onClick={() => setFilterMyTasks(!filterMyTasks)}
+            className={`text-xs font-medium px-3 py-1 rounded-md border transition-colors cursor-pointer ${
+              filterMyTasks
+                ? 'bg-stone-900 text-white border-stone-900'
+                : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-50'
+            }`}
+          >
+            {filterMyTasks ? '✓ Showing My Tasks Only' : 'Show My Tasks Only'}
+          </button>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-4">
+          {TEAM.map((member) => {
+            const memberTasks = tasks.filter((t) => t.assignee === member.name && t.status !== 'done');
+            return (
+              <div key={member.name} className="flex items-center gap-2 bg-stone-50 px-2.5 py-1 rounded-md border border-stone-200">
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold ${member.color}`}>
+                  {member.initials}
+                </span>
+                <span className="text-xs font-medium text-stone-800">{member.name}</span>
+                <span className="text-[10px] font-bold bg-white text-stone-600 px-1.5 py-0.5 rounded-full border border-stone-200">
+                  {memberTasks.length} active
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Grid with 4 Equal Columns */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-stretch" role="region" aria-label="Kanban Board Columns">
         {STAGES.map((stage) => {
-          const columnTasks = tasks.filter((task) => task.status === stage.id);
+          const columnTasks = displayedTasks.filter((task) => task.status === stage.id);
 
           return (
             <div
@@ -265,7 +342,6 @@ export default function App() {
                   </span>
                 </div>
 
-                {/* Column "+ Add Task" button with explicit padding and spacing */}
                 <button
                   type="button"
                   onClick={() => handleOpenCreate(stage.id)}
@@ -280,11 +356,12 @@ export default function App() {
               <div className="flex flex-col gap-3 flex-1">
                 {columnTasks.length === 0 ? (
                   <div className="flex-1 flex items-center justify-center border border-dashed border-stone-300/80 rounded-md p-6 text-center text-stone-400 text-xs font-mono">
-                    No tasks yet
+                    No tasks found
                   </div>
                 ) : (
                   columnTasks.map((task) => {
                     const activeTheme = currentThemeSet[task.type] || currentThemeSet.feature;
+                    const assigneeObj = getTeamMember(task.assignee);
 
                     return (
                       <div
@@ -319,9 +396,14 @@ export default function App() {
                           {task.description}
                         </p>
 
-                        {/* Card Footer */}
-                        <div className="flex items-center justify-between pt-2 border-t border-stone-100 text-[11px] text-stone-500 font-mono mt-auto">
-                          <span className="font-sans font-medium text-stone-800 truncate max-w-[110px]">{task.assignee}</span>
+                        {/* Card Footer with Assignee Avatar & Initials */}
+                        <div className="flex items-center justify-between pt-2.5 border-t border-stone-100 text-[11px] text-stone-500 font-mono mt-auto">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold ${assigneeObj.color}`} title={assigneeObj.name}>
+                              {assigneeObj.initials}
+                            </span>
+                            <span className="font-sans font-medium text-stone-800 truncate max-w-[95px]">{task.assignee}</span>
+                          </div>
                           {task.dueDate && <span className="shrink-0">Due: {task.dueDate}</span>}
                         </div>
                       </div>
@@ -344,7 +426,7 @@ export default function App() {
         >
           <div className="bg-white rounded-lg border border-stone-200 max-w-md w-full p-6 shadow-xl">
             <h2 className="text-base font-semibold text-stone-900 mb-4 pb-2 border-b border-stone-100 flex items-center justify-between">
-              <span>{editingTask ? `Edit Task` : 'Create New Task'}</span>
+              <span>{editingTask ? `Task Details (${editingTask.id})` : 'Create New Task'}</span>
               {editingTask && <span className="text-xs font-mono font-normal text-stone-400 uppercase">{editingTask.id}</span>}
             </h2>
 
@@ -372,19 +454,19 @@ export default function App() {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1">Task Type</label>
-                <select
-                  value={formType}
-                  onChange={(e) => setFormType(e.target.value)}
-                  className="w-full text-sm border border-stone-300 rounded p-2.5 bg-white font-medium focus:outline-none focus:ring-2 focus:ring-sky-600"
-                >
-                  <option value="feature">Feature</option>
-                  <option value="bug">Bug</option>
-                </select>
-              </div>
-
               <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-stone-700 mb-1">Task Type</label>
+                  <select
+                    value={formType}
+                    onChange={(e) => setFormType(e.target.value)}
+                    className="w-full text-sm border border-stone-300 rounded p-2.5 bg-white font-medium focus:outline-none focus:ring-2 focus:ring-sky-600"
+                  >
+                    <option value="feature">Feature</option>
+                    <option value="bug">Bug</option>
+                  </select>
+                </div>
+
                 <div>
                   <label className="block text-xs font-semibold text-stone-700 mb-1">Status Column</label>
                   <select
@@ -399,21 +481,33 @@ export default function App() {
                     ))}
                   </select>
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 mb-1">Assignee</label>
-                  <select
-                    value={formAssignee}
-                    onChange={(e) => setFormAssignee(e.target.value)}
-                    className="w-full text-sm border border-stone-300 rounded p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-sky-600"
-                  >
-                    {TEAM.map((member) => (
-                      <option key={member} value={member}>
-                        {member}
-                      </option>
-                    ))}
-                  </select>
+              {/* Assignee Field with "Assign to me" shortcut */}
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-xs font-semibold text-stone-700">Assignee</label>
+                  {formAssignee !== currentUser && (
+                    <button
+                      type="button"
+                      onClick={() => setFormAssignee(currentUser)}
+                      className="text-[11px] text-sky-700 hover:underline font-medium cursor-pointer"
+                    >
+                      Assign to me ({currentUserObj.initials})
+                    </button>
+                  )}
                 </div>
+                <select
+                  value={formAssignee}
+                  onChange={(e) => setFormAssignee(e.target.value)}
+                  className="w-full text-sm border border-stone-300 rounded p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-sky-600 font-medium"
+                >
+                  {TEAM.map((member) => (
+                    <option key={member.name} value={member.name}>
+                      {member.name} ({member.initials})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -431,7 +525,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={handleDeleteTask}
-                    className="text-xs text-red-600 hover:text-red-800 font-medium hover:underline focus:ring-2 focus:ring-sky-600 focus:outline-none rounded px-1"
+                    className="text-xs text-red-600 hover:text-red-800 font-medium hover:underline focus:ring-2 focus:ring-sky-600 focus:outline-none rounded px-1 cursor-pointer"
                   >
                     Delete Task
                   </button>
@@ -443,7 +537,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="px-3.5 py-2 text-xs text-stone-600 hover:bg-stone-100 rounded transition-colors"
+                    className="px-3.5 py-2 text-xs text-stone-600 hover:bg-stone-100 rounded transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>

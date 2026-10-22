@@ -4,7 +4,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        'surface-page': '#DDD0C8',   // beige page background
+        'surface-page': '#c49c84',   // beige page background
         'surface-column': '#D5C2AB', // Distinct, warm deeper beige column background
       },
     },
