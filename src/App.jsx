@@ -46,7 +46,7 @@ const getTeamMember = (name) => {
   return TEAM.find((m) => m.name === name) || { name: name || 'Unassigned', initials: '??', color: 'bg-stone-500 text-white' };
 };
 
-// High-Contrast Accessible Color Themes
+// Color Themes for Feature vs Bug Badges
 export const COLOR_MODES = {
   standard: {
     feature: { badge: 'bg-emerald-100 text-emerald-950 border-emerald-300', symbol: '★' },
@@ -130,12 +130,12 @@ Apply Tailwind line-clamp-2 to card description text and adjust column margins o
   },
 ];
 
-// Calculation for time-based urgency state (Milestone 8)
+// Time-based urgency styling
 const getTaskUrgency = (task) => {
   if (task.status === 'done') return 'neutral';
   if (!task.dueDate) return 'calm';
 
-  const today = new Date();
+  const today = new Date('2026-10-26');
   today.setHours(0, 0, 0, 0);
 
   const due = new Date(task.dueDate);
@@ -143,12 +143,12 @@ const getTaskUrgency = (task) => {
 
   const diffDays = Math.round((due - today) / (1000 * 60 * 60 * 24));
 
-  if (diffDays < 0) return 'alarm';       // Past due
-  if (diffDays <= 1) return 'warning';    // Less than 24 hours
-  return 'calm';                          // More than 2 days out
+  if (diffDays < 0) return 'alarm';
+  if (diffDays <= 1) return 'warning';
+  return 'calm';
 };
 
-// Helper for relative time formatting (Milestone 9)
+// Helper for relative time formatting
 const formatRelativeTime = (isoString) => {
   if (!isoString) return 'Never updated';
   const diffMs = Date.now() - new Date(isoString).getTime();
@@ -182,13 +182,16 @@ export function useLocalStorage(key, initialValue) {
 }
 
 export default function App() {
-  const [tasks, setTasks] = useLocalStorage('vibetracker.tasks.v4', SEED_TASKS);
+  const [tasks, setTasks] = useLocalStorage('vibetracker.tasks.v12', SEED_TASKS);
   const [currentUser, setCurrentUser] = useLocalStorage('vibetracker.user', TEAM[0].name);
   const [isAccessibleMode, setIsAccessibleMode] = useLocalStorage('vibetracker.accessible', false);
 
   const [filterMyTasks, setFilterMyTasks] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
+
+  // Toast Notification State
+  const [toastMessage, setToastMessage] = useState(null);
 
   // Form States
   const [formTitle, setFormTitle] = useState('');
@@ -203,6 +206,35 @@ export default function App() {
 
   const currentUserObj = getTeamMember(currentUser);
   const currentThemeSet = isAccessibleMode ? COLOR_MODES.accessible : COLOR_MODES.standard;
+
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 2500);
+  };
+
+  const handleCopyContext = (e, taskData) => {
+    if (e) e.stopPropagation();
+
+    const title = taskData ? taskData.title : formTitle;
+    const desc = taskData ? taskData.description : formDesc;
+    const ctx = taskData ? taskData.context : formContext;
+    const tool = taskData ? taskData.contextTool : formContextTool;
+
+    const formattedBlock = `## Context (${tool || 'AI Assistant'})
+
+**Task:** ${title}
+**Description:** ${desc}
+
+${ctx || ''}`;
+
+    navigator.clipboard.writeText(formattedBlock).then(() => {
+      showToast('Copied to clipboard!');
+    }).catch(() => {
+      showToast('Failed to copy');
+    });
+  };
 
   const handleOpenCreate = (defaultStatus = 'todo') => {
     setEditingTask(null);
@@ -297,8 +329,16 @@ export default function App() {
     : tasks;
 
   return (
-    <div className="min-h-screen bg-[#FBF9F5] text-stone-900 p-6 md:p-8 font-sans selection:bg-stone-200" role="main" aria-label="Project Tracker Board">
+    <div className="min-h-screen bg-[#FBF9F5] text-stone-900 p-6 md:p-8 font-sans selection:bg-stone-200 relative" role="main" aria-label="Project Tracker Board">
       
+      {/* Toast Notification Banner */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 bg-stone-900 text-stone-50 px-4 py-2.5 rounded-md shadow-lg text-xs font-mono font-medium flex items-center gap-2 animate-bounce">
+          <span className="w-2 h-2 rounded-full bg-emerald-400" />
+          {toastMessage}
+        </div>
+      )}
+
       {/* Header Bar */}
       <header className="mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white p-6 rounded-lg border border-stone-200 shadow-xs">
         <div>
@@ -477,20 +517,34 @@ export default function App() {
                         }}
                         className={`pt-3.5 pb-4 px-4 rounded-md border ${urgencyClasses} transition-all duration-150 cursor-pointer hover:shadow-md hover:-translate-y-0.5 focus:ring-2 focus:ring-sky-600 focus:outline-none flex flex-col justify-between`}
                       >
-                        {/* Top ID and Badge Row */}
-                        <div className="flex justify-between items-center mb-2">
+                        {/* Top ID, Badge, and Copy Icon Row */}
+                        <div className="flex justify-between items-center mb-2 gap-2">
                           <span className="text-[11px] font-mono text-stone-600 uppercase font-bold tracking-tight">{task.id}</span>
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap justify-end">
                             {urgency === 'alarm' && (
-                              <span className="text-[9px] bg-red-200 text-red-950 border border-red-400 px-1.5 py-0.5 rounded font-bold font-mono">PAST DUE</span>
+                              <span className="text-[9px] bg-red-200 text-red-950 border border-red-400 px-1 py-0.5 rounded font-bold font-mono">PAST DUE</span>
                             )}
                             {urgency === 'warning' && (
-                              <span className="text-[9px] bg-amber-200 text-amber-950 border border-amber-400 px-1.5 py-0.5 rounded font-bold font-mono">DUE SOON</span>
+                              <span className="text-[9px] bg-amber-200 text-amber-950 border border-amber-400 px-1 py-0.5 rounded font-bold font-mono">DUE SOON</span>
                             )}
-                            <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full uppercase tracking-wider border flex items-center gap-1 ${activeTheme.badge}`}>
+                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider border flex items-center gap-1 ${activeTheme.badge}`}>
                               <span aria-hidden="true">{activeTheme.symbol}</span>
                               {task.type}
                             </span>
+                            
+                            {/* Copy Context Icon Button with reduced opacity matching card theme */}
+                            <button
+                              type="button"
+                              onClick={(e) => handleCopyContext(e, task)}
+                              title="Copy Context"
+                              aria-label="Copy Context"
+                              className="p-1 rounded bg-black/5 hover:bg-black/10 text-stone-800 transition-colors cursor-pointer flex items-center justify-center"
+                            >
+                              <svg className="w-3.5 h-3.5 opacity-70 hover:opacity-100" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <rect width="13" height="13" x="9" y="9" rx="2" ry="2"/>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                              </svg>
+                            </button>
                           </div>
                         </div>
 
@@ -504,13 +558,13 @@ export default function App() {
                           {task.description}
                         </p>
 
-                        {/* Card Footer with Assignee Avatar & Initials */}
+                        {/* Clean Card Footer */}
                         <div className="flex items-center justify-between pt-2.5 border-t border-black/10 text-[11px] text-stone-600 font-mono mt-auto">
                           <div className="flex items-center gap-1.5">
                             <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold ${assigneeObj.color}`} title={assigneeObj.name}>
                               {assigneeObj.initials}
                             </span>
-                            <span className="font-sans font-medium text-stone-900 truncate max-w-[95px]">{task.assignee}</span>
+                            <span className="font-sans font-medium text-stone-900 truncate max-w-[110px]">{task.assignee}</span>
                           </div>
                           {task.dueDate && <span className="shrink-0 font-bold">Due: {task.dueDate}</span>}
                         </div>
@@ -562,14 +616,26 @@ export default function App() {
                 />
               </div>
 
-              {/* Milestone 9: Task Context Markdown Textarea */}
+              {/* Task Context Markdown Textarea with Copy Context Icon Button inline with label */}
               <div>
-                <div className="flex justify-between items-center mb-1">
+                <div className="flex justify-between items-center mb-1.5">
                   <label className="block text-xs font-semibold text-stone-700">Context</label>
-                  <span className="text-[10px] text-stone-500 font-mono">
-                    Last updated {formatRelativeTime(formContextUpdatedAt)}
-                  </span>
+                  
+                  <button
+                    type="button"
+                    onClick={handleCopyContext}
+                    title="Copy Context"
+                    aria-label="Copy Context"
+                    className="p-1 rounded bg-stone-100 hover:bg-stone-200 text-stone-800 border border-stone-300 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold px-2"
+                  >
+                    <svg className="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <rect width="13" height="13" x="9" y="9" rx="2" ry="2"/>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                    </svg>
+                    <span>Copy Context</span>
+                  </button>
                 </div>
+
                 <textarea
                   rows="7"
                   value={formContext}
@@ -577,9 +643,15 @@ export default function App() {
                   placeholder="Markdown context for AI tools..."
                   className="w-full font-mono text-xs border border-stone-300 rounded p-3 bg-stone-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-600 leading-relaxed"
                 />
+
+                <div className="flex justify-end mt-1">
+                  <span className="text-[10px] text-stone-500 font-mono">
+                    Last updated {formatRelativeTime(formContextUpdatedAt)}
+                  </span>
+                </div>
               </div>
 
-              {/* Milestone 9: Optional AI Tool Dropdown */}
+              {/* Optional AI Tool Dropdown */}
               <div>
                 <label className="block text-xs font-semibold text-stone-700 mb-1">AI Tool</label>
                 <select
