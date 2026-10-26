@@ -130,6 +130,13 @@ Apply Tailwind line-clamp-2 to card description text and adjust column margins o
   },
 ];
 
+const INITIAL_DELIVERABLES = {
+  presentation: '',
+  demo: '',
+  report: '',
+  documentation: '',
+};
+
 // Time-based urgency styling
 const getTaskUrgency = (task) => {
   if (task.status === 'done') return 'neutral';
@@ -182,7 +189,8 @@ export function useLocalStorage(key, initialValue) {
 }
 
 export default function App() {
-  const [tasks, setTasks] = useLocalStorage('vibetracker.tasks.v12', SEED_TASKS);
+  const [tasks, setTasks] = useLocalStorage('vibetracker.tasks.v14', SEED_TASKS);
+  const [deliverables, setDeliverables] = useLocalStorage('vibetracker.deliverables.v1', INITIAL_DELIVERABLES);
   const [currentUser, setCurrentUser] = useLocalStorage('vibetracker.user', TEAM[0].name);
   const [isAccessibleMode, setIsAccessibleMode] = useLocalStorage('vibetracker.accessible', false);
 
@@ -214,26 +222,28 @@ export default function App() {
     }, 2500);
   };
 
-  const handleCopyContext = (e, taskData) => {
+  const handleCopyContext = (e) => {
     if (e) e.stopPropagation();
 
-    const title = taskData ? taskData.title : formTitle;
-    const desc = taskData ? taskData.description : formDesc;
-    const ctx = taskData ? taskData.context : formContext;
-    const tool = taskData ? taskData.contextTool : formContextTool;
+    const formattedBlock = `## Context (${formContextTool || 'AI Assistant'})
 
-    const formattedBlock = `## Context (${tool || 'AI Assistant'})
+**Task:** ${formTitle}
+**Description:** ${formDesc}
 
-**Task:** ${title}
-**Description:** ${desc}
-
-${ctx || ''}`;
+${formContext || ''}`;
 
     navigator.clipboard.writeText(formattedBlock).then(() => {
       showToast('Copied to clipboard!');
     }).catch(() => {
       showToast('Failed to copy');
     });
+  };
+
+  const handleDeliverableChange = (key, value) => {
+    setDeliverables((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
   };
 
   const handleOpenCreate = (defaultStatus = 'todo') => {
@@ -426,6 +436,101 @@ ${ctx || ''}`;
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* Milestone 11: Deliverable Anchor Banner (Positioned directly after Team Workload) */}
+      <div className="mb-6 bg-white border border-stone-200 rounded-lg p-4 shadow-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          
+          {/* Presentation Card */}
+          <div className="bg-stone-50 border border-stone-200 rounded-md p-3 flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-stone-800 font-sans">
+                Presentation
+              </span>
+              <span
+                className={`w-2.5 h-2.5 rounded-full transition-colors ${
+                  deliverables.presentation.trim() ? 'bg-emerald-500' : 'bg-stone-300'
+                }`}
+                title={deliverables.presentation.trim() ? 'Link added' : 'No link'}
+              />
+            </div>
+            <input
+              type="url"
+              value={deliverables.presentation}
+              onChange={(e) => handleDeliverableChange('presentation', e.target.value)}
+              placeholder="Enter URL..."
+              className="w-full text-xs bg-white border border-stone-300 rounded px-2.5 py-1.5 text-stone-800 font-mono focus:outline-none focus:ring-2 focus:ring-sky-600"
+            />
+          </div>
+
+          {/* Demo Card */}
+          <div className="bg-stone-50 border border-stone-200 rounded-md p-3 flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-stone-800 font-sans">
+                Demo
+              </span>
+              <span
+                className={`w-2.5 h-2.5 rounded-full transition-colors ${
+                  deliverables.demo.trim() ? 'bg-emerald-500' : 'bg-stone-300'
+                }`}
+                title={deliverables.demo.trim() ? 'Link added' : 'No link'}
+              />
+            </div>
+            <input
+              type="url"
+              value={deliverables.demo}
+              onChange={(e) => handleDeliverableChange('demo', e.target.value)}
+              placeholder="Enter URL..."
+              className="w-full text-xs bg-white border border-stone-300 rounded px-2.5 py-1.5 text-stone-800 font-mono focus:outline-none focus:ring-2 focus:ring-sky-600"
+            />
+          </div>
+
+          {/* Report Card */}
+          <div className="bg-stone-50 border border-stone-200 rounded-md p-3 flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-stone-800 font-sans">
+                Report
+              </span>
+              <span
+                className={`w-2.5 h-2.5 rounded-full transition-colors ${
+                  deliverables.report.trim() ? 'bg-emerald-500' : 'bg-stone-300'
+                }`}
+                title={deliverables.report.trim() ? 'Link added' : 'No link'}
+              />
+            </div>
+            <input
+              type="url"
+              value={deliverables.report}
+              onChange={(e) => handleDeliverableChange('report', e.target.value)}
+              placeholder="Enter URL..."
+              className="w-full text-xs bg-white border border-stone-300 rounded px-2.5 py-1.5 text-stone-800 font-mono focus:outline-none focus:ring-2 focus:ring-sky-600"
+            />
+          </div>
+
+          {/* Documentation Card */}
+          <div className="bg-stone-50 border border-stone-200 rounded-md p-3 flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-stone-800 font-sans">
+                Documentation
+              </span>
+              <span
+                className={`w-2.5 h-2.5 rounded-full transition-colors ${
+                  deliverables.documentation.trim() ? 'bg-emerald-500' : 'bg-stone-300'
+                }`}
+                title={deliverables.documentation.trim() ? 'Link added' : 'No link'}
+              />
+            </div>
+            <input
+              type="url"
+              value={deliverables.documentation}
+              onChange={(e) => handleDeliverableChange('documentation', e.target.value)}
+              placeholder="Enter URL..."
+              className="w-full text-xs bg-white border border-stone-300 rounded px-2.5 py-1.5 text-stone-800 font-mono focus:outline-none focus:ring-2 focus:ring-sky-600"
+            />
+          </div>
+
         </div>
       </div>
 
