@@ -46,7 +46,18 @@ const getTeamMember = (name) => {
   return TEAM.find((m) => m.name === name) || { name: name || 'Unassigned', initials: '??', color: 'bg-stone-500 text-white' };
 };
 
-// Seed tasks designed to demonstrate all 4 states on page load
+// High-Contrast Accessible Color Themes
+export const COLOR_MODES = {
+  standard: {
+    feature: { badge: 'bg-emerald-100 text-emerald-950 border-emerald-300', symbol: '★' },
+    bug: { badge: 'bg-red-100 text-red-950 border-red-300', symbol: '▲' },
+  },
+  accessible: {
+    feature: { badge: 'bg-blue-600 text-white border-blue-700 font-bold', symbol: '★' },
+    bug: { badge: 'bg-orange-600 text-white border-orange-700 font-bold', symbol: '▲' },
+  },
+};
+
 const SEED_TASKS = [
   {
     id: 'task-1',
@@ -55,7 +66,21 @@ const SEED_TASKS = [
     type: 'feature',
     status: 'done',
     assignee: 'Alice Smith',
-    dueDate: '2026-10-20', // Done -> Neutral
+    dueDate: '2026-10-20',
+    context: `**Background**
+Configure Vite, React, and Tailwind CSS design tokens for the Project Alpha workspace.
+
+**Constraints**
+- Ensure color variables adhere to warm stone palette standards.
+- Maintain responsive break points for all column layouts.
+
+**Tried so far**
+Verified Vite config and verified CSS utility purging.
+
+**Pick up**
+Completed and merged into main repository.`,
+    contextTool: 'Claude',
+    contextUpdatedAt: new Date(Date.now() - 7200000).toISOString(),
   },
   {
     id: 'task-2',
@@ -64,7 +89,21 @@ const SEED_TASKS = [
     type: 'feature',
     status: 'in-progress',
     assignee: 'Bob Jones',
-    dueDate: '2026-10-23', // Less than 24h -> Warning (Amber/Yellow)
+    dueDate: '2026-10-23',
+    context: `**Background**
+Render To Do, In Progress, Review, and Done columns with responsive grid layout.
+
+**Constraints**
+- Columns must stack vertically on mobile screens.
+- Cards must stretch cleanly across four equal columns on desktop.
+
+**Tried so far**
+Tested flexbox auto-wrap, switched to Tailwind CSS grid for stable column widths.
+
+**Pick up**
+Refine column padding and transition animations when cards move between stages.`,
+    contextTool: 'ChatGPT',
+    contextUpdatedAt: new Date().toISOString(),
   },
   {
     id: 'task-3',
@@ -73,23 +112,27 @@ const SEED_TASKS = [
     type: 'bug',
     status: 'todo',
     assignee: 'Charlie Brown',
-    dueDate: '2026-10-20', // Past due -> Alarm (Red)
-  },
-  {
-    id: 'task-4',
-    title: 'Setup automated CI/CD pipeline',
-    description: 'Deploy main branch automatically on push.',
-    type: 'feature',
-    status: 'review',
-    assignee: 'Alice Smith',
-    dueDate: '2026-10-28', // More than 2 days -> Calm (Baby Blue)
+    dueDate: '2026-10-20',
+    context: `**Background**
+Cards break outside column boundaries on screens smaller than 380px.
+
+**Constraints**
+- Prevent horizontal scrollbars on narrow mobile viewports.
+- Maintain readable text sizes and minimum touching targets for buttons.
+
+**Tried so far**
+Added overflow-hidden to card containers, but text truncation still needs line-clamp fixes.
+
+**Pick up**
+Apply Tailwind line-clamp-2 to card description text and adjust column margins on small screens.`,
+    contextTool: 'Cursor',
+    contextUpdatedAt: new Date().toISOString(),
   },
 ];
 
-// Calculation for time-based urgency state
+// Calculation for time-based urgency state (Milestone 8)
 const getTaskUrgency = (task) => {
-  if (task.status === 'done') return 'neutral'; // Done: neutral
-
+  if (task.status === 'done') return 'neutral';
   if (!task.dueDate) return 'calm';
 
   const today = new Date();
@@ -103,6 +146,20 @@ const getTaskUrgency = (task) => {
   if (diffDays < 0) return 'alarm';       // Past due
   if (diffDays <= 1) return 'warning';    // Less than 24 hours
   return 'calm';                          // More than 2 days out
+};
+
+// Helper for relative time formatting (Milestone 9)
+const formatRelativeTime = (isoString) => {
+  if (!isoString) return 'Never updated';
+  const diffMs = Date.now() - new Date(isoString).getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return `${diffDays}d ago`;
 };
 
 export function useLocalStorage(key, initialValue) {
@@ -125,21 +182,27 @@ export function useLocalStorage(key, initialValue) {
 }
 
 export default function App() {
-  const [tasks, setTasks] = useLocalStorage('vibetracker.tasks', SEED_TASKS);
+  const [tasks, setTasks] = useLocalStorage('vibetracker.tasks.v4', SEED_TASKS);
   const [currentUser, setCurrentUser] = useLocalStorage('vibetracker.user', TEAM[0].name);
+  const [isAccessibleMode, setIsAccessibleMode] = useLocalStorage('vibetracker.accessible', false);
 
   const [filterMyTasks, setFilterMyTasks] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
 
+  // Form States
   const [formTitle, setFormTitle] = useState('');
   const [formDesc, setFormDesc] = useState('');
   const [formType, setFormType] = useState('feature');
   const [formStatus, setFormStatus] = useState('todo');
   const [formAssignee, setFormAssignee] = useState(currentUser);
   const [formDueDate, setFormDueDate] = useState('');
+  const [formContext, setFormContext] = useState('');
+  const [formContextTool, setFormContextTool] = useState('Claude');
+  const [formContextUpdatedAt, setFormContextUpdatedAt] = useState(null);
 
   const currentUserObj = getTeamMember(currentUser);
+  const currentThemeSet = isAccessibleMode ? COLOR_MODES.accessible : COLOR_MODES.standard;
 
   const handleOpenCreate = (defaultStatus = 'todo') => {
     setEditingTask(null);
@@ -149,6 +212,9 @@ export default function App() {
     setFormStatus(defaultStatus);
     setFormAssignee(currentUser);
     setFormDueDate('');
+    setFormContext(`**Background**\nDescribe the task background...\n\n**Constraints**\nNote any constraints...\n\n**Tried so far**\nNote what you've tried...\n\n**Pick up**\nNext steps...`);
+    setFormContextTool('Claude');
+    setFormContextUpdatedAt(new Date().toISOString());
     setIsModalOpen(true);
   };
 
@@ -160,7 +226,15 @@ export default function App() {
     setFormStatus(task.status);
     setFormAssignee(task.assignee);
     setFormDueDate(task.dueDate || '');
+    setFormContext(task.context || `**Background**\n${task.description}\n\n**Constraints**\nFollow guidelines\n\n**Tried so far**\nInitial work\n\n**Pick up**\nNext steps`);
+    setFormContextTool(task.contextTool || 'Claude');
+    setFormContextUpdatedAt(task.contextUpdatedAt || null);
     setIsModalOpen(true);
+  };
+
+  const handleContextChange = (newVal) => {
+    setFormContext(newVal);
+    setFormContextUpdatedAt(new Date().toISOString());
   };
 
   const handleSaveTask = (e) => {
@@ -182,6 +256,9 @@ export default function App() {
                 status: formStatus,
                 assignee: formAssignee,
                 dueDate: formDueDate,
+                context: formContext,
+                contextTool: formContextTool,
+                contextUpdatedAt: formContextUpdatedAt || new Date().toISOString(),
               }
             : t
         )
@@ -199,6 +276,9 @@ export default function App() {
         assignee: formAssignee,
         dueDate: formDueDate,
         createdDate: new Date().toISOString().split('T')[0],
+        context: formContext,
+        contextTool: formContextTool,
+        contextUpdatedAt: formContextUpdatedAt || new Date().toISOString(),
       };
       setTasks([...tasks, newTask]);
     }
@@ -247,6 +327,17 @@ export default function App() {
               </select>
             </div>
           </div>
+
+          {/* Accessible Mode Checkbox */}
+          <label className="text-xs font-medium text-stone-700 flex items-center gap-2 cursor-pointer bg-stone-50 px-3 py-2 rounded-md border border-stone-200 hover:border-stone-300 transition-colors">
+            <input
+              type="checkbox"
+              checked={isAccessibleMode}
+              onChange={(e) => setIsAccessibleMode(e.target.checked)}
+              className="accent-stone-900 rounded-sm focus:ring-2 focus:ring-sky-600 focus:outline-none w-4 h-4 cursor-pointer"
+            />
+            <span>Accessible Mode</span> <span className="text-[10px] text-stone-500">(Blue/Orange)</span>
+          </label>
 
           {/* Add Task Button */}
           <button
@@ -366,18 +457,14 @@ export default function App() {
                   columnTasks.map((task) => {
                     const assigneeObj = getTeamMember(task.assignee);
                     const urgency = getTaskUrgency(task);
+                    const activeTheme = currentThemeSet[task.type] || currentThemeSet.feature;
 
-                    // 4 visibly distinct time-based state classes
                     const urgencyClasses = {
                       calm: 'bg-sky-200/90 border-sky-400 shadow-xs text-sky-950',
                       warning: 'bg-amber-200/90 border-amber-400 shadow-xs text-amber-950',
                       alarm: 'bg-red-200/90 border-red-400 shadow-sm ring-1 ring-red-400 text-red-950',
                       neutral: 'bg-stone-50/90 border-stone-200 text-stone-700 opacity-90',
                     }[urgency];
-
-                    const badgeStyle = task.type === 'bug' 
-                      ? 'bg-red-100 text-red-950 border-red-300' 
-                      : 'bg-emerald-100 text-emerald-950 border-emerald-300';
 
                     return (
                       <div
@@ -400,8 +487,8 @@ export default function App() {
                             {urgency === 'warning' && (
                               <span className="text-[9px] bg-amber-200 text-amber-950 border border-amber-400 px-1.5 py-0.5 rounded font-bold font-mono">DUE SOON</span>
                             )}
-                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider border flex items-center gap-1 ${badgeStyle}`}>
-                              <span aria-hidden="true">{task.type === 'bug' ? '▲' : '★'}</span>
+                            <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full uppercase tracking-wider border flex items-center gap-1 ${activeTheme.badge}`}>
+                              <span aria-hidden="true">{activeTheme.symbol}</span>
                               {task.type}
                             </span>
                           </div>
@@ -437,15 +524,15 @@ export default function App() {
         })}
       </div>
 
-      {/* Task Modal */}
+      {/* Task Modal with Markdown Context Area & AI Tool Selector */}
       {isModalOpen && (
         <div 
-          className="fixed inset-0 bg-stone-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50" 
+          className="fixed inset-0 bg-stone-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto" 
           role="dialog" 
           aria-modal="true"
           onClick={(e) => { if (e.target === e.currentTarget) setIsModalOpen(false); }}
         >
-          <div className="bg-white rounded-lg border border-stone-200 max-w-md w-full p-6 shadow-xl">
+          <div className="bg-white rounded-lg border border-stone-200 max-w-lg w-full p-6 shadow-xl my-8">
             <h2 className="text-base font-semibold text-stone-900 mb-4 pb-2 border-b border-stone-100 flex items-center justify-between">
               <span>{editingTask ? `Task Details (${editingTask.id})` : 'Create New Task'}</span>
               {editingTask && <span className="text-xs font-mono font-normal text-stone-400 uppercase">{editingTask.id}</span>}
@@ -467,12 +554,46 @@ export default function App() {
               <div>
                 <label className="block text-xs font-semibold text-stone-700 mb-1">Description</label>
                 <textarea
-                  rows="3"
+                  rows="2"
                   value={formDesc}
                   onChange={(e) => setFormDesc(e.target.value)}
                   placeholder="Add context or notes..."
                   className="w-full text-sm border border-stone-300 rounded p-2.5 focus:outline-none focus:ring-2 focus:ring-sky-600"
                 />
+              </div>
+
+              {/* Milestone 9: Task Context Markdown Textarea */}
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-xs font-semibold text-stone-700">Context</label>
+                  <span className="text-[10px] text-stone-500 font-mono">
+                    Last updated {formatRelativeTime(formContextUpdatedAt)}
+                  </span>
+                </div>
+                <textarea
+                  rows="7"
+                  value={formContext}
+                  onChange={(e) => handleContextChange(e.target.value)}
+                  placeholder="Markdown context for AI tools..."
+                  className="w-full font-mono text-xs border border-stone-300 rounded p-3 bg-stone-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-600 leading-relaxed"
+                />
+              </div>
+
+              {/* Milestone 9: Optional AI Tool Dropdown */}
+              <div>
+                <label className="block text-xs font-semibold text-stone-700 mb-1">AI Tool</label>
+                <select
+                  value={formContextTool}
+                  onChange={(e) => formContextTool(e.target.value)}
+                  className="w-full text-sm border border-stone-300 rounded p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-sky-600 font-medium"
+                >
+                  <option value="Claude">Claude</option>
+                  <option value="ChatGPT">ChatGPT</option>
+                  <option value="Cursor">Cursor</option>
+                  <option value="Lovable">Lovable</option>
+                  <option value="Replit">Replit</option>
+                  <option value="Other">Other</option>
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
