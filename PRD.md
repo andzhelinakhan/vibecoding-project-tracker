@@ -145,7 +145,10 @@ Fill in:
 
 - **Team name:** `<TODO>`
 - **Tagline (one sentence):** `<TODO>`
-- **Tracker URL after deploy:** `<TODO>` (Vercel will give it to you)
+- **Tracker URL after deploy:** `https://vibecoding-project-tracker-alpha-steel.vercel.app/` 
+(Vercel will give it to you)
+
+
 
 ## 12. Out of scope (do not build)
 
