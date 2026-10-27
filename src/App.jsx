@@ -36,17 +36,12 @@ const DEFAULT_STAGES = [
   },
 ];
 
-export const TEAM = [
+export const INITIAL_TEAM = [
   { name: 'Alice Smith', email: 'alice@projectalpha.com', initials: 'AS', color: 'bg-purple-600 text-white' },
   { name: 'Bob Jones', email: 'bob@projectalpha.com', initials: 'BJ', color: 'bg-amber-600 text-white' },
   { name: 'Charlie Brown', email: 'charlie@projectalpha.com', initials: 'CB', color: 'bg-emerald-600 text-white' },
 ];
 
-const getTeamMember = (name) => {
-  return TEAM.find((m) => m.name === name) || { name: name || 'Unassigned', initials: '??', color: 'bg-stone-500 text-white' };
-};
-
-// Color Themes for Feature vs Bug Badges
 export const COLOR_MODES = {
   standard: {
     feature: { badge: 'bg-emerald-100 text-emerald-950 border-emerald-300', symbol: '★' },
@@ -78,7 +73,7 @@ const SEED_TASKS = [
     type: 'feature',
     status: 'in-progress',
     assignee: 'Bob Jones',
-    dueDate: '2026-10-23',
+    dueDate: '2026-10-28',
     context: `**Background**\nRender To Do, In Progress, Review, and Done columns with responsive grid layout.\n\n**Constraints**\n- Columns must stack vertically on mobile screens.\n- Cards must stretch cleanly across four equal columns on desktop.\n\n**Tried so far**\nTested flexbox auto-wrap, switched to Tailwind CSS grid for stable column widths.\n\n**Pick up**\nRefine column padding and transition animations when cards move between stages.`,
     contextTool: 'ChatGPT',
     contextUpdatedAt: new Date().toISOString(),
@@ -90,7 +85,7 @@ const SEED_TASKS = [
     type: 'bug',
     status: 'todo',
     assignee: 'Charlie Brown',
-    dueDate: '2026-10-20',
+    dueDate: '2026-10-26',
     context: `**Background**\nCards break outside column boundaries on screens smaller than 380px.\n\n**Constraints**\n- Prevent horizontal scrollbars on narrow mobile viewports.\n- Maintain readable text sizes and minimum touching targets for buttons.\n\n**Tried so far**\nAdded overflow-hidden to card containers, but text truncation still needs line-clamp fixes.\n\n**Pick up**\nApply Tailwind line-clamp-2 to card description text and adjust column margins on small screens.`,
     contextTool: 'Cursor',
     contextUpdatedAt: new Date().toISOString(),
@@ -104,12 +99,11 @@ const INITIAL_DELIVERABLES = {
   documentation: '',
 };
 
-// Time-based urgency styling
 const getTaskUrgency = (task) => {
   if (task.status === 'done') return 'neutral';
   if (!task.dueDate) return 'calm';
 
-  const today = new Date('2026-10-26');
+  const today = new Date('2026-10-27');
   today.setHours(0, 0, 0, 0);
 
   const due = new Date(task.dueDate);
@@ -118,11 +112,10 @@ const getTaskUrgency = (task) => {
   const diffDays = Math.round((due - today) / (1000 * 60 * 60 * 24));
 
   if (diffDays < 0) return 'alarm';
-  if (diffDays <= 1) return 'warning';
+  if (diffDays < 2) return 'warning';
   return 'calm';
 };
 
-// Helper for relative time formatting
 const formatRelativeTime = (isoString) => {
   if (!isoString) return 'Never updated';
   const diffMs = Date.now() - new Date(isoString).getTime();
@@ -156,49 +149,42 @@ export function useLocalStorage(key, initialValue) {
 }
 
 export default function App() {
-  const [tasks, setTasks] = useLocalStorage('vibetracker.tasks.v24', SEED_TASKS);
+  const [tasks, setTasks] = useLocalStorage('vibetracker.tasks.v28', SEED_TASKS);
   const [deliverables, setDeliverables] = useLocalStorage('vibetracker.deliverables.v1', INITIAL_DELIVERABLES);
-  const [currentUser, setCurrentUser] = useLocalStorage('vibetracker.user', TEAM[0].name);
+  const [teamList, setTeamList] = useLocalStorage('vibetracker.teamlist.v1', INITIAL_TEAM);
+  const [currentUser, setCurrentUser] = useLocalStorage('vibetracker.user', INITIAL_TEAM[0].name);
   const [isLoggedIn, setIsLoggedIn] = useLocalStorage('vibetracker.isLoggedIn', false);
 
-  // Login Form States
+  const [newMemberName, setNewMemberName] = useState('');
+  const [newMemberEmail, setNewMemberEmail] = useState('');
+
   const [loginEmail, setLoginEmail] = useState('bob@projectalpha.com');
   const [loginPassword, setLoginPassword] = useState('secret123');
   const [loginError, setLoginError] = useState('');
 
-  // Drag and Drop State
   const [draggedTaskId, setDraggedTaskId] = useState(null);
 
-  // Customisation & Feature Visibility States
   const [pageBgColor, setPageBgColor] = useLocalStorage('vibetracker.theme.custombg', '#FBF9F5');
   const [stagesConfig, setStagesConfig] = useLocalStorage('vibetracker.stages', DEFAULT_STAGES);
   
-  // Toggles for optional bars/features
   const [showTeamBar, setShowTeamBar] = useLocalStorage('vibetracker.features.teambar', false);
   const [showUrgencyLegendBar, setShowUrgencyLegendBar] = useLocalStorage('vibetracker.features.urgencylegend', false);
   const [showDeliverablesBanner, setShowDeliverablesBanner] = useLocalStorage('vibetracker.features.deliverables', true);
   const [highlightUrgency, setHighlightUrgency] = useLocalStorage('vibetracker.highlighturgency', false);
 
-  // Accessibility States
   const [isAccessibleMode, setIsAccessibleMode] = useLocalStorage('vibetracker.accessible', false);
-  const [fontSizeScale, setFontSizeScale] = useLocalStorage('vibetracker.fontsize', '14px'); // Global base font size
+  const [fontSizeScale, setFontSizeScale] = useLocalStorage('vibetracker.fontsize', '14px');
   const [fontStyleMode, setFontStyleMode] = useLocalStorage('vibetracker.fontstyle', 'default'); 
 
-  // Unified Settings Menu Modal State
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [settingsTab, setSettingsTab] = useState('features'); // 'features' | 'accessibility' | 'appearance' | 'team'
-  
-  // User Dropdown State
+  const [settingsTab, setSettingsTab] = useState('features');
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   const [filterMyTasks, setFilterMyTasks] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
-
-  // Toast Notification State
   const [toastMessage, setToastMessage] = useState(null);
 
-  // Form States
   const [formTitle, setFormTitle] = useState('');
   const [formDesc, setFormDesc] = useState('');
   const [formType, setFormType] = useState('feature');
@@ -208,6 +194,10 @@ export default function App() {
   const [formContext, setFormContext] = useState('');
   const [formContextTool, setFormContextTool] = useState('Claude');
   const [formContextUpdatedAt, setFormContextUpdatedAt] = useState(null);
+
+  const getTeamMember = (name) => {
+    return teamList.find((m) => m.name === name) || { name: name || 'Unassigned', initials: '??', color: 'bg-stone-500 text-white' };
+  };
 
   const currentUserObj = getTeamMember(currentUser);
   const currentThemeSet = isAccessibleMode ? COLOR_MODES.accessible : COLOR_MODES.standard;
@@ -225,13 +215,47 @@ export default function App() {
     }, 2500);
   };
 
+  const handleAddTeamMember = (e) => {
+    e.preventDefault();
+    if (!newMemberName.trim()) return;
+
+    const initials = newMemberName
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+
+    const colorVariants = [
+      'bg-sky-600 text-white',
+      'bg-indigo-600 text-white',
+      'bg-rose-600 text-white',
+      'bg-teal-600 text-white',
+      'bg-violet-600 text-white',
+      'bg-fuchsia-600 text-white',
+    ];
+    const pickedColor = colorVariants[teamList.length % colorVariants.length];
+
+    const newMember = {
+      name: newMemberName.trim(),
+      email: newMemberEmail.trim() || `${newMemberName.toLowerCase().replace(/\s+/g, '')}@projectalpha.com`,
+      initials: initials || 'TM',
+      color: pickedColor,
+    };
+
+    setTeamList([...teamList, newMember]);
+    setNewMemberName('');
+    setNewMemberEmail('');
+    showToast(`Added ${newMember.name} to team!`);
+  };
+
   const handleLogin = (e) => {
     e.preventDefault();
     if (!loginEmail.trim() || !loginPassword.trim()) {
       setLoginError('Please enter email and password');
       return;
     }
-    const matchedUser = TEAM.find(m => m.email.toLowerCase() === loginEmail.toLowerCase());
+    const matchedUser = teamList.find(m => m.email.toLowerCase() === loginEmail.toLowerCase());
     if (matchedUser) {
       setCurrentUser(matchedUser.name);
       setIsLoggedIn(true);
@@ -248,7 +272,6 @@ export default function App() {
     showToast('Logged out');
   };
 
-  // Drag and Drop Event Handlers
   const handleDragStart = (e, taskId) => {
     setDraggedTaskId(taskId);
     e.dataTransfer.setData('text/plain', taskId);
@@ -361,6 +384,7 @@ ${ctx || ''}`;
             : t
         )
       );
+      showToast('Task updated');
     } else {
       const existingIds = tasks.map((t) => parseInt(t.id.replace('task-', ''), 10) || 0);
       const nextNum = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 1;
@@ -379,6 +403,7 @@ ${ctx || ''}`;
         contextUpdatedAt: formContextUpdatedAt || new Date().toISOString(),
       };
       setTasks([...tasks, newTask]);
+      showToast('Task created');
     }
     setIsModalOpen(false);
   };
@@ -387,6 +412,7 @@ ${ctx || ''}`;
     if (editingTask && confirm("Delete this task? This can't be undone.")) {
       setTasks(tasks.filter((t) => t.id !== editingTask.id));
       setIsModalOpen(false);
+      showToast('Task deleted');
     }
   };
 
@@ -394,7 +420,6 @@ ${ctx || ''}`;
     ? tasks.filter((t) => t.assignee === currentUser)
     : tasks;
 
-  // If user is logged out, show default login screen
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-[#FBF9F5] flex items-center justify-center p-6 font-sans">
@@ -441,24 +466,17 @@ ${ctx || ''}`;
             </button>
           </form>
 
-          {/* Example Login Details Box */}
           <div className="mt-6 pt-6 border-t border-stone-200 bg-stone-50 p-4 rounded-md text-xs">
             <span className="font-mono font-bold uppercase text-[10px] tracking-wider text-stone-500 block mb-2">
               Default Demo Login Accounts:
             </span>
             <div className="flex flex-col gap-1.5 font-mono text-[11px] text-stone-700">
-              <div className="flex justify-between border-b border-stone-200/60 pb-1">
-                <span>bob@projectalpha.com</span>
-                <span className="text-stone-400">secret123</span>
-              </div>
-              <div className="flex justify-between border-b border-stone-200/60 pb-1">
-                <span>alice@projectalpha.com</span>
-                <span className="text-stone-400">secret123</span>
-              </div>
-              <div className="flex justify-between">
-                <span>charlie@projectalpha.com</span>
-                <span className="text-stone-400">secret123</span>
-              </div>
+              {teamList.map((m) => (
+                <div key={m.email} className="flex justify-between border-b border-stone-200/60 pb-1">
+                  <span>{m.email}</span>
+                  <span className="text-stone-400">secret123</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -474,7 +492,6 @@ ${ctx || ''}`;
       aria-label="Project Tracker Board"
     >
       
-      {/* Toast Notification Banner */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 bg-stone-900 text-stone-50 px-4 py-2.5 rounded-md shadow-lg font-mono font-medium flex items-center gap-2 animate-bounce">
           <span className="w-2 h-2 rounded-full bg-emerald-400" />
@@ -482,7 +499,7 @@ ${ctx || ''}`;
         </div>
       )}
 
-      {/* Clean & Ultra-Minimal Header */}
+      {/* Header */}
       <header className="mb-4 flex items-center justify-between bg-white px-5 py-4 rounded-lg border border-stone-200 shadow-xs">
         <div className="flex items-center gap-4">
           <h1 className="text-xl font-serif text-stone-900 tracking-tight font-medium">Project Alpha</h1>
@@ -496,7 +513,6 @@ ${ctx || ''}`;
 
         <div className="flex items-center gap-3">
           
-          {/* Settings Menu Button */}
           <button
             type="button"
             onClick={() => setIsSettingsOpen(true)}
@@ -505,7 +521,6 @@ ${ctx || ''}`;
             <span>Settings</span>
           </button>
 
-          {/* User Profile Menu Dropdown */}
           <div className="relative">
             <button
               type="button"
@@ -546,7 +561,6 @@ ${ctx || ''}`;
             )}
           </div>
 
-          {/* Primary Action: Add Task Button */}
           <button
             type="button"
             onClick={() => handleOpenCreate('todo')}
@@ -558,7 +572,7 @@ ${ctx || ''}`;
         </div>
       </header>
 
-      {/* Unified Settings Modal/Drawer with Feature Toggles */}
+      {/* Settings Modal */}
       {isSettingsOpen && (
         <div 
           className="fixed inset-0 bg-stone-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto"
@@ -576,7 +590,6 @@ ${ctx || ''}`;
               </button>
             </div>
 
-            {/* Settings Sub-Tabs */}
             <div className="flex border-b border-stone-200 mb-4 gap-4">
               <button
                 type="button"
@@ -604,11 +617,11 @@ ${ctx || ''}`;
                 onClick={() => setSettingsTab('team')}
                 className={`pb-2 font-medium cursor-pointer border-b-2 transition-colors ${settingsTab === 'team' ? 'border-stone-900 text-stone-900' : 'border-transparent text-stone-500 hover:text-stone-700'}`}
               >
-                Team Workload
+                Team Builder
               </button>
             </div>
 
-            {/* Tab 1: Feature Toggles (Pick what bars to show) */}
+            {/* Tab 1: Feature Toggles */}
             {settingsTab === 'features' && (
               <div className="flex flex-col gap-3">
                 <span className="font-mono text-stone-500 font-bold uppercase tracking-wider text-[11px] mb-1">
@@ -673,7 +686,10 @@ ${ctx || ''}`;
             {settingsTab === 'accessibility' && (
               <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between bg-stone-50 p-3 rounded border border-stone-200">
-                  <span className="font-medium text-stone-800">High Contrast Theme (Blue/Orange)</span>
+                  <div>
+                    <span className="font-medium text-stone-800 block">High Contrast Mode</span>
+                    <span className="text-[11px] text-stone-500">Switches urgency highlights to bright light blue, yellow, and pink backgrounds with dark text.</span>
+                  </div>
                   <input
                     type="checkbox"
                     checked={isAccessibleMode}
@@ -738,7 +754,7 @@ ${ctx || ''}`;
               </div>
             )}
 
-            {/* Tab 3: Appearance Customizer */}
+            {/* Tab 3: Appearance */}
             {settingsTab === 'appearance' && (
               <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between bg-stone-50 p-3 rounded border border-stone-200">
@@ -792,23 +808,53 @@ ${ctx || ''}`;
               </div>
             )}
 
-            {/* Tab 4: Team Workload */}
+            {/* Tab 4: Team Builder */}
             {settingsTab === 'team' && (
               <div className="flex flex-col gap-3">
                 <span className="font-mono text-stone-500 font-bold uppercase tracking-wider text-[11px]">
-                  Team Active Tasks:
+                  Add Team Member Manually:
                 </span>
-                {TEAM.map((member) => {
+                
+                <form onSubmit={handleAddTeamMember} className="p-3.5 bg-stone-50 rounded border border-stone-200 flex flex-col gap-2.5">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Full Name (e.g. Dana Lee)"
+                      value={newMemberName}
+                      onChange={(e) => setNewMemberName(e.target.value)}
+                      className="flex-1 text-xs border border-stone-300 rounded p-2 bg-white focus:outline-none focus:ring-1 focus:ring-sky-600"
+                      required
+                    />
+                    <input
+                      type="email"
+                      placeholder="Email address"
+                      value={newMemberEmail}
+                      onChange={(e) => setNewMemberEmail(e.target.value)}
+                      className="flex-1 text-xs border border-stone-300 rounded p-2 bg-white focus:outline-none focus:ring-1 focus:ring-sky-600"
+                    />
+                    <button
+                      type="submit"
+                      className="bg-stone-900 text-white text-xs px-3.5 py-2 rounded font-medium hover:bg-stone-800 cursor-pointer shrink-0"
+                    >
+                      + Add
+                    </button>
+                  </div>
+                </form>
+
+                <span className="font-mono text-stone-500 font-bold uppercase tracking-wider text-[11px] mt-2">
+                  Active Team Members ({teamList.length}):
+                </span>
+                {teamList.map((member) => {
                   const memberTasks = tasks.filter((t) => t.assignee === member.name && t.status !== 'done');
                   return (
-                    <div key={member.name} className="flex items-center justify-between bg-stone-50 px-3.5 py-2.5 rounded border border-stone-200">
+                    <div key={member.name} className="flex items-center justify-between bg-stone-50 px-3.5 py-2 rounded border border-stone-200">
                       <div className="flex items-center gap-2.5">
                         <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${member.color}`}>
                           {member.initials}
                         </span>
                         <span className="font-medium text-stone-800">{member.name} ({member.email})</span>
                       </div>
-                      <span className="font-bold text-stone-900 bg-white px-2.5 py-1 rounded border border-stone-300">{memberTasks.length} active tasks</span>
+                      <span className="font-bold text-stone-900 bg-white px-2.5 py-0.5 rounded border border-stone-300 text-xs">{memberTasks.length} active tasks</span>
                     </div>
                   );
                 })}
@@ -819,14 +865,13 @@ ${ctx || ''}`;
         </div>
       )}
 
-      {/* OPTIONAL BAR 1: Team Workload Summary Bar (Shown if toggled on) */}
       {showTeamBar && (
         <div className="mb-4 bg-white border border-stone-200 rounded-lg p-3.5 shadow-2xs flex flex-wrap items-center justify-between gap-3 animate-fadeIn">
           <span className="font-mono text-stone-500 font-bold uppercase tracking-wider text-[10px]">
             Team Workload Overview:
           </span>
           <div className="flex items-center gap-3 flex-wrap">
-            {TEAM.map((member) => {
+            {teamList.map((member) => {
               const memberTasks = tasks.filter((t) => t.assignee === member.name && t.status !== 'done');
               return (
                 <div key={member.name} className="flex items-center gap-1.5 bg-stone-50 px-2.5 py-1 rounded border border-stone-200">
@@ -841,25 +886,35 @@ ${ctx || ''}`;
         </div>
       )}
 
-      {/* OPTIONAL BAR 2: Urgency Legend Bar (Shown if toggled on) */}
+      {/* Urgency Legend Guide */}
       {showUrgencyLegendBar && (
         <div className="mb-4 bg-white border border-stone-200 rounded-lg p-3.5 shadow-2xs flex flex-wrap items-center justify-end gap-6 animate-fadeIn">
           <span className="font-mono text-stone-500 font-bold uppercase tracking-wider text-[10px] mr-auto">
             Urgency Legend Guide:
           </span>
-          <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-xs bg-sky-200 border border-sky-400" /><span className="text-stone-700">Normal</span></div>
-          <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-xs bg-amber-200 border border-amber-400" /><span className="text-amber-950">Due Soon</span></div>
-          <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-xs bg-red-200 border border-red-400" /><span className="text-red-950">Past Due</span></div>
-          <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-xs bg-stone-50 border border-stone-300" /><span className="text-stone-600">Done</span></div>
+          <div className="flex items-center gap-1.5">
+            <span className={`w-3 h-3 rounded-xs border ${isAccessibleMode ? 'bg-sky-200 border-sky-600' : 'bg-sky-200 border-sky-400'}`} />
+            <span className="text-stone-700">Normal</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className={`w-3 h-3 rounded-xs border ${isAccessibleMode ? 'bg-yellow-300 border-yellow-600' : 'bg-amber-200 border-amber-400'}`} />
+            <span className="text-amber-950">Due Soon (&lt;2d)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className={`w-3 h-3 rounded-xs border ${isAccessibleMode ? 'bg-pink-400 border-pink-700' : 'bg-red-200 border-red-400'}`} />
+            <span className="text-red-950">Past Due</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-xs bg-stone-50 border border-stone-300" />
+            <span className="text-stone-600">Done</span>
+          </div>
         </div>
       )}
 
-      {/* OPTIONAL BAR 3: Deliverables Anchor Banner (Shown if toggled on) */}
       {showDeliverablesBanner && (
         <div className="mb-6 bg-white border border-stone-200 rounded-lg p-3.5 shadow-2xs animate-fadeIn">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             
-            {/* Presentation */}
             <div className="bg-stone-50 border border-stone-200 rounded p-2 flex flex-col justify-between">
               <div className="flex items-center justify-between mb-1">
                 <span className="font-bold uppercase tracking-wider text-stone-700">Presentation</span>
@@ -874,7 +929,6 @@ ${ctx || ''}`;
               />
             </div>
 
-            {/* Demo */}
             <div className="bg-stone-50 border border-stone-200 rounded p-2 flex flex-col justify-between">
               <div className="flex items-center justify-between mb-1">
                 <span className="font-bold uppercase tracking-wider text-stone-700">Demo</span>
@@ -889,7 +943,6 @@ ${ctx || ''}`;
               />
             </div>
 
-            {/* Report */}
             <div className="bg-stone-50 border border-stone-200 rounded p-2 flex flex-col justify-between">
               <div className="flex items-center justify-between mb-1">
                 <span className="font-bold uppercase tracking-wider text-stone-700">Report</span>
@@ -904,7 +957,6 @@ ${ctx || ''}`;
               />
             </div>
 
-            {/* Documentation */}
             <div className="bg-stone-50 border border-stone-200 rounded p-2 flex flex-col justify-between">
               <div className="flex items-center justify-between mb-1">
                 <span className="font-bold uppercase tracking-wider text-stone-700">Docs</span>
@@ -923,7 +975,7 @@ ${ctx || ''}`;
         </div>
       )}
 
-      {/* Main Kanban Board Columns with Drag and Drop */}
+      {/* Main Kanban Board Columns */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-stretch" role="region" aria-label="Kanban Board Columns">
         {stagesConfig.map((stage) => {
           const columnTasks = displayedTasks.filter((task) => task.status === stage.id);
@@ -935,7 +987,6 @@ ${ctx || ''}`;
               onDrop={(e) => handleDrop(e, stage.id)}
               className={`border ${stage.border} ${stage.bg} rounded-lg p-4 flex flex-col min-h-[580px] w-full transition-colors duration-200 shadow-2xs`}
             >
-              {/* Column Header */}
               <div className="flex items-center justify-between pb-3 mb-4 border-b border-black/10">
                 <div className="flex items-center gap-2">
                   <h2 className={`font-bold uppercase tracking-wider ${stage.headerText}`}>
@@ -956,7 +1007,6 @@ ${ctx || ''}`;
                 </button>
               </div>
 
-              {/* Column Body */}
               <div className="flex flex-col gap-3 flex-1">
                 {columnTasks.length === 0 ? (
                   <div className="flex-1 flex items-center justify-center border border-dashed border-stone-300/80 rounded-md p-6 text-center text-stone-400 font-mono">
@@ -968,14 +1018,20 @@ ${ctx || ''}`;
                     const urgency = getTaskUrgency(task);
                     const activeTheme = currentThemeSet[task.type] || currentThemeSet.feature;
 
-                    // Only apply urgency color tint if highlightUrgency setting is explicitly checked
                     const urgencyClasses = highlightUrgency
-                      ? {
-                          calm: 'bg-sky-200/90 border-sky-400 shadow-xs text-sky-950',
-                          warning: 'bg-amber-200/90 border-amber-400 shadow-xs text-amber-950',
-                          alarm: 'bg-red-200/90 border-red-400 shadow-sm ring-1 ring-red-400 text-red-950',
-                          neutral: 'bg-white border-stone-200 text-stone-800',
-                        }[urgency]
+                      ? isAccessibleMode
+                        ? {
+                            calm: 'bg-sky-200 border-2 border-sky-600 text-stone-950 font-medium',
+                            warning: 'bg-yellow-300 border-2 border-yellow-600 text-stone-950 font-bold',
+                            alarm: 'bg-pink-400 border-2 border-pink-700 text-stone-950 shadow-md font-bold',
+                            neutral: 'bg-white border-stone-200 text-stone-800',
+                          }[urgency]
+                        : {
+                            calm: 'bg-sky-200/90 border-sky-400 shadow-xs text-sky-950',
+                            warning: 'bg-amber-200/90 border-amber-400 shadow-xs text-amber-950',
+                            alarm: 'bg-red-200/90 border-red-400 shadow-sm ring-1 ring-red-400 text-red-950',
+                            neutral: 'bg-white border-stone-200 text-stone-800',
+                          }[urgency]
                       : 'bg-white border-stone-200 shadow-2xs text-stone-800';
 
                     return (
@@ -991,22 +1047,24 @@ ${ctx || ''}`;
                         }}
                         className={`pt-3.5 pb-4 px-4 rounded-md border ${urgencyClasses} transition-all duration-150 cursor-grab active:cursor-grabbing hover:shadow-md hover:-translate-y-0.5 focus:ring-2 focus:ring-sky-600 focus:outline-none flex flex-col justify-between`}
                       >
-                        {/* Top ID, Badge, and Copy Icon Row */}
                         <div className="flex justify-between items-center mb-2 gap-2">
-                          <span className="font-mono text-stone-600 uppercase font-bold tracking-tight">{task.id}</span>
+                          <span className="font-mono text-stone-700 uppercase font-bold tracking-tight">{task.id}</span>
                           <div className="flex items-center gap-1.5 flex-wrap justify-end">
                             {highlightUrgency && urgency === 'alarm' && (
-                              <span className="bg-red-200 text-red-950 border border-red-400 px-1.5 py-0.5 rounded font-bold font-mono">PAST DUE</span>
+                              <span className={`${isAccessibleMode ? 'bg-pink-500 text-stone-950 border-pink-700' : 'bg-red-200 text-red-950 border-red-400'} px-1.5 py-0.5 rounded font-bold font-mono text-[10px]`}>
+                                {isAccessibleMode ? 'OVERDUE' : 'PAST DUE'}
+                              </span>
                             )}
                             {highlightUrgency && urgency === 'warning' && (
-                              <span className="bg-amber-200 text-amber-950 border border-amber-400 px-1.5 py-0.5 rounded font-bold font-mono">DUE SOON</span>
+                              <span className={`${isAccessibleMode ? 'bg-yellow-400 text-stone-950 border-yellow-700' : 'bg-amber-200 text-amber-950 border-amber-400'} px-1.5 py-0.5 rounded font-bold font-mono text-[10px]`}>
+                                DUE SOON (&lt;2d)
+                              </span>
                             )}
                             <span className={`font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider border flex items-center gap-1 ${activeTheme.badge}`}>
                               <span aria-hidden="true">{activeTheme.symbol}</span>
                               {task.type}
                             </span>
                             
-                            {/* Copy Context Icon Button */}
                             <button
                               type="button"
                               onClick={(e) => handleCopyContext(e, task)}
@@ -1022,25 +1080,27 @@ ${ctx || ''}`;
                           </div>
                         </div>
 
-                        {/* Card Title */}
-                        <h3 className="font-bold text-stone-900 mb-1.5 leading-snug">
+                        <h3 className="font-bold text-stone-950 mb-1.5 leading-snug">
                           {task.title}
                         </h3>
 
-                        {/* Card Description */}
-                        <p className="text-stone-700 line-clamp-2 leading-relaxed mb-3">
+                        <p className="text-stone-800 line-clamp-2 leading-relaxed mb-3">
                           {task.description}
                         </p>
 
-                        {/* Clean Card Footer */}
-                        <div className="flex items-center justify-between pt-2.5 border-t border-black/10 text-stone-600 font-mono mt-auto">
-                          <div className="flex items-center gap-1.5">
-                            <span className={`w-5 h-5 rounded-full flex items-center justify-center font-bold ${assigneeObj.color}`} title={assigneeObj.name}>
+                        {/* Responsive Footer Layout to Support Large Font Scaling */}
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-2.5 border-t border-black/10 text-stone-800 font-mono mt-auto gap-1.5">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className={`w-5 h-5 shrink-0 rounded-full flex items-center justify-center font-bold ${assigneeObj.color}`} title={assigneeObj.name}>
                               {assigneeObj.initials}
                             </span>
-                            <span className="font-sans font-medium text-stone-900 truncate max-w-[110px]">{task.assignee}</span>
+                            <span className="font-sans font-medium text-stone-950 truncate">{task.assignee}</span>
                           </div>
-                          {task.dueDate && <span className="shrink-0 font-bold">Due: {task.dueDate}</span>}
+                          {task.dueDate && (
+                            <span className="shrink-0 font-bold text-[11px] sm:text-xs">
+                              Due: {task.dueDate}
+                            </span>
+                          )}
                         </div>
                       </div>
                     );
@@ -1052,7 +1112,7 @@ ${ctx || ''}`;
         })}
       </div>
 
-      {/* Task Modal with Markdown Context Area & AI Tool Selector */}
+      {/* Task Modal - Fully Scrollable */}
       {isModalOpen && (
         <div 
           className="fixed inset-0 bg-stone-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto" 
@@ -1060,8 +1120,8 @@ ${ctx || ''}`;
           aria-modal="true"
           onClick={(e) => { if (e.target === e.currentTarget) setIsModalOpen(false); }}
         >
-          <div className="bg-white rounded-lg border border-stone-200 max-w-lg w-full p-6 shadow-xl my-8">
-            <h2 className="font-semibold text-stone-900 mb-4 pb-2 border-b border-stone-100 flex items-center justify-between">
+          <div className="bg-white rounded-lg border border-stone-200 max-w-lg w-full p-6 shadow-xl my-8 max-h-[90vh] overflow-y-auto">
+            <h2 className="font-semibold text-stone-900 mb-4 pb-2 border-b border-stone-100 flex items-center justify-between sticky top-0 bg-white z-10">
               <span>{editingTask ? `Task Details (${editingTask.id})` : 'Create New Task'}</span>
               {editingTask && <span className="font-mono font-normal text-stone-400 uppercase">{editingTask.id}</span>}
             </h2>
@@ -1075,7 +1135,7 @@ ${ctx || ''}`;
                   value={formTitle}
                   onChange={(e) => setFormTitle(e.target.value)}
                   placeholder="e.g. Configure database schema"
-                  className="w-full border border-stone-300 rounded p-2.5 focus:outline-none focus:ring-2 focus:ring-sky-600"
+                  className="w-full border border-stone-300 rounded p-2.5 focus:outline-none focus:ring-2 focus:ring-sky-600 text-xs"
                 />
               </div>
 
@@ -1086,11 +1146,10 @@ ${ctx || ''}`;
                   value={formDesc}
                   onChange={(e) => setFormDesc(e.target.value)}
                   placeholder="Add context or notes..."
-                  className="w-full border border-stone-300 rounded p-2.5 focus:outline-none focus:ring-2 focus:ring-sky-600"
+                  className="w-full border border-stone-300 rounded p-2.5 focus:outline-none focus:ring-2 focus:ring-sky-600 text-xs"
                 />
               </div>
 
-              {/* Task Context Markdown Textarea */}
               <div>
                 <div className="flex justify-between items-center mb-1.5">
                   <label className="block font-semibold text-stone-700">Context</label>
@@ -1100,7 +1159,7 @@ ${ctx || ''}`;
                     onClick={handleCopyContext}
                     title="Copy Context"
                     aria-label="Copy Context"
-                    className="p-1 rounded bg-stone-100 hover:bg-stone-200 text-stone-800 border border-stone-300 transition-colors cursor-pointer flex items-center gap-1.5 font-semibold px-2"
+                    className="p-1 rounded bg-stone-100 hover:bg-stone-200 text-stone-800 border border-stone-300 transition-colors cursor-pointer flex items-center gap-1.5 font-semibold px-2 text-xs"
                   >
                     <svg className="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                       <rect width="13" height="13" x="9" y="9" rx="2" ry="2"/>
@@ -1111,11 +1170,11 @@ ${ctx || ''}`;
                 </div>
 
                 <textarea
-                  rows="7"
+                  rows="5"
                   value={formContext}
                   onChange={(e) => handleContextChange(e.target.value)}
                   placeholder="Markdown context for AI tools..."
-                  className="w-full font-mono border border-stone-300 rounded p-3 bg-stone-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-600 leading-relaxed"
+                  className="w-full font-mono border border-stone-300 rounded p-3 bg-stone-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-600 leading-relaxed text-xs"
                 />
 
                 <div className="flex justify-end mt-1">
@@ -1125,13 +1184,12 @@ ${ctx || ''}`;
                 </div>
               </div>
 
-              {/* Optional AI Tool Dropdown */}
               <div>
                 <label className="block font-semibold text-stone-700 mb-1">AI Tool</label>
                 <select
                   value={formContextTool}
-                  onChange={(e) => formContextTool(e.target.value)}
-                  className="w-full border border-stone-300 rounded p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-sky-600 font-medium"
+                  onChange={(e) => setFormContextTool(e.target.value)}
+                  className="w-full border border-stone-300 rounded p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-sky-600 font-medium text-xs"
                 >
                   <option value="Claude">Claude</option>
                   <option value="ChatGPT">ChatGPT</option>
@@ -1148,7 +1206,7 @@ ${ctx || ''}`;
                   <select
                     value={formType}
                     onChange={(e) => setFormType(e.target.value)}
-                    className="w-full border border-stone-300 rounded p-2.5 bg-white font-medium focus:outline-none focus:ring-2 focus:ring-sky-600"
+                    className="w-full border border-stone-300 rounded p-2.5 bg-white font-medium focus:outline-none focus:ring-2 focus:ring-sky-600 text-xs"
                   >
                     <option value="feature">Feature</option>
                     <option value="bug">Bug</option>
@@ -1160,7 +1218,7 @@ ${ctx || ''}`;
                   <select
                     value={formStatus}
                     onChange={(e) => setFormStatus(e.target.value)}
-                    className="w-full border border-stone-300 rounded p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-sky-600"
+                    className="w-full border border-stone-300 rounded p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-sky-600 text-xs"
                   >
                     {stagesConfig.map((s) => (
                       <option key={s.id} value={s.id}>
@@ -1178,7 +1236,7 @@ ${ctx || ''}`;
                     <button
                       type="button"
                       onClick={() => setFormAssignee(currentUser)}
-                      className="text-sky-700 hover:underline font-medium cursor-pointer"
+                      className="text-sky-700 hover:underline font-medium cursor-pointer text-xs"
                     >
                       Assign to me ({currentUserObj.initials})
                     </button>
@@ -1187,9 +1245,9 @@ ${ctx || ''}`;
                 <select
                   value={formAssignee}
                   onChange={(e) => setFormAssignee(e.target.value)}
-                  className="w-full border border-stone-300 rounded p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-sky-600 font-medium"
+                  className="w-full border border-stone-300 rounded p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-sky-600 font-medium text-xs"
                 >
-                  {TEAM.map((member) => (
+                  {teamList.map((member) => (
                     <option key={member.name} value={member.name}>
                       {member.name} ({member.initials})
                     </option>
@@ -1203,7 +1261,7 @@ ${ctx || ''}`;
                   type="date"
                   value={formDueDate}
                   onChange={(e) => setFormDueDate(e.target.value)}
-                  className="w-full border border-stone-300 rounded p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-sky-600"
+                  className="w-full border border-stone-300 rounded p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-sky-600 text-xs"
                 />
               </div>
 
@@ -1212,7 +1270,7 @@ ${ctx || ''}`;
                   <button
                     type="button"
                     onClick={handleDeleteTask}
-                    className="bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 font-medium px-3.5 py-2 rounded transition-colors cursor-pointer"
+                    className="bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 font-medium px-3.5 py-2 rounded transition-colors cursor-pointer text-xs"
                   >
                     Delete Task
                   </button>
@@ -1224,13 +1282,13 @@ ${ctx || ''}`;
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="px-3.5 py-2 text-stone-700 bg-white border border-stone-300 hover:bg-stone-50 rounded transition-colors cursor-pointer font-medium"
+                    className="px-3.5 py-2 text-stone-700 bg-white border border-stone-300 hover:bg-stone-50 rounded transition-colors cursor-pointer font-medium text-xs"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-stone-900 text-white rounded font-medium hover:bg-stone-800 transition-colors shadow-xs cursor-pointer"
+                    className="px-4 py-2 bg-stone-900 text-white rounded font-medium hover:bg-stone-800 transition-colors shadow-xs cursor-pointer text-xs"
                   >
                     {editingTask ? 'Save' : 'Create Task'}
                   </button>
